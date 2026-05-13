@@ -1,0 +1,15 @@
+{
+  "name": "mini-geospacial-ai-assist-monorepo",
+  "private": true,
+  "workspaces": [
+    "app/frontend",
+    "app/backend"
+  ],
+  "scripts": {
+    "frontend:dev": "npm run dev --workspace @mini-geospacial-ai-assist/frontend",
+    "frontend:lint": "npm run lint --workspace @mini-geospacial-ai-assist/frontend",
+    "frontend:build": "npm run build --workspace @mini-geospacial-ai-assist/frontend",
+    "backend:assets:dev": "npm run dev --workspace @mini-geospacial-ai-assist/backend-assets",
+    "backend:assets:build": "npm run build --workspace @mini-geospacial-ai-assist/backend-assets"
+  }
+}
