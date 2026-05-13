@@ -31,6 +31,8 @@ app/frontend/node_modules
 app/frontend/dist
 app/frontend/.env
 app/frontend/.env.*
+/node_modules
+/package-lock.json
 
 .idea/
 app/**/.idea/
