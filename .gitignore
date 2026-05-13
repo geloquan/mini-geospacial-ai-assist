@@ -1,6 +1,5 @@
 app/backend/*.log
 app/backend/.DS_Store
-app/backend/app/backend/.env
 app/backend/.env.backup
 app/backend/.env.production
 app/backend/.phpactor.json
@@ -29,3 +28,10 @@ app/backend/Thumbs.db
 app/backend/.env
 
 app/frontend/node_modules
+app/frontend/dist
+app/frontend/.env
+app/frontend/.env.*
+
+.idea/
+app/**/.idea/
+app/**/.vscode
