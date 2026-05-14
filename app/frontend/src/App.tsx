@@ -55,6 +55,7 @@ const YOLO_UPLOADS_KEY = 'mini_geospatial_yolo_uploads'
 const MAX_MODEL_SIZE_BYTES = 100 * 1024 * 1024
 const ALLOWED_MODEL_EXTENSIONS = ['.pt', '.onnx', '.engine', '.tflite', '.pb']
 const EMPTY_LOCATIONS: CameraLocation[] = []
+const EMPTY_CATALOG_ROWS: Record<string, unknown>[] = []
 const CATALOG_PAGE_SIZE = 10
 
 const CATALOG_TABLES: Array<{ endpoint: CatalogResourceEndpoint; label: string }> = [
@@ -570,7 +571,7 @@ function App() {
     (catalogTable) => catalogTable.endpoint === selectedCatalogEndpoint,
   )?.label
     ?? 'Catalog'
-  const catalogTableRows = catalogTableData?.rows ?? []
+  const catalogTableRows = catalogTableData?.rows ?? EMPTY_CATALOG_ROWS
   const catalogTableColumns = useMemo(
     () => Array.from(new Set(catalogTableRows.flatMap((row) => Object.keys(row)))),
     [catalogTableRows],
@@ -586,16 +587,6 @@ function App() {
   useEffect(() => { writeStorage(OBJECT_CLASSES_KEY, objectClasses) }, [objectClasses])
   useEffect(() => { writeStorage(ALIAS_GROUPS_KEY, aliasGroups) }, [aliasGroups])
   useEffect(() => { writeStorage(YOLO_UPLOADS_KEY, uploadedYoloModels) }, [uploadedYoloModels])
-  useEffect(() => { setSelectedCatalogPage(1) }, [selectedCatalogEndpoint])
-  useEffect(() => {
-    if (!catalogTableData) {
-      return
-    }
-
-    if (selectedCatalogPage > catalogTableData.lastPage) {
-      setSelectedCatalogPage(catalogTableData.lastPage)
-    }
-  }, [catalogTableData, selectedCatalogPage])
 
   const effectiveSelectedLocationId = selectedLocationId ?? locations[0]?.id ?? null
   const selectedLocation = useMemo(() => locations.find((l) => l.id === effectiveSelectedLocationId) ?? null, [effectiveSelectedLocationId, locations])
@@ -894,7 +885,10 @@ function App() {
               <FieldGuide label="Catalog Resource" icon={Layers} hint="Switch between API catalog resources">
                 <Select
                   value={selectedCatalogEndpoint}
-                  onChange={(event) => setSelectedCatalogEndpoint(event.target.value as CatalogResourceEndpoint)}
+                  onChange={(event) => {
+                    setSelectedCatalogEndpoint(event.target.value as CatalogResourceEndpoint)
+                    setSelectedCatalogPage(1)
+                  }}
                 >
                   {CATALOG_TABLES.map((catalogTable) => (
                     <option key={catalogTable.endpoint} value={catalogTable.endpoint}>
