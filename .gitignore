@@ -28,6 +28,7 @@ app/backend/Thumbs.db
 app/backend/.env
 
 app/frontend/node_modules
+app/frontend/node_modules/
 app/frontend/dist
 app/frontend/.env
 app/frontend/.env.*
