@@ -271,24 +271,31 @@ function App() {
     }
 
     try {
+      const cameraSpecificationInput = {
+        vendor: cameraVendor || null,
+        model: cameraModel || null,
+        resolution: cameraResolution || null,
+        fps: cameraFps === '' ? null : Number(cameraFps),
+        fieldOfView: cameraFov || null,
+      }
+      const yoloModelMetadataInput = {
+        modelName: modelName || null,
+        modelVersion: modelVersion || null,
+        confidenceThreshold: confidenceThreshold === '' ? null : Number(confidenceThreshold),
+        iouThreshold: iouThreshold === '' ? null : Number(iouThreshold),
+      }
+
       const createdLocation = await createLocation(token, {
         locationName,
         descriptiveLocation,
         cameraIdentifier: cameraIdentifier || null,
         liveFeedUrl: liveFeedUrl || null,
-        cameraSpecification: {
-          vendor: cameraVendor || null,
-          model: cameraModel || null,
-          resolution: cameraResolution || null,
-          fps: cameraFps === '' ? null : Number(cameraFps),
-          fieldOfView: cameraFov || null,
-        },
-        yoloModelMetadata: {
-          modelName: modelName || null,
-          modelVersion: modelVersion || null,
-          confidenceThreshold: confidenceThreshold === '' ? null : Number(confidenceThreshold),
-          iouThreshold: iouThreshold === '' ? null : Number(iouThreshold),
-        },
+        cameraSpecification: Object.values(cameraSpecificationInput).every((value) => value === null)
+          ? null
+          : cameraSpecificationInput,
+        yoloModelMetadata: Object.values(yoloModelMetadataInput).every((value) => value === null)
+          ? null
+          : yoloModelMetadataInput,
         latitude: latitude === '' ? null : Number(latitude),
         longitude: longitude === '' ? null : Number(longitude),
       })

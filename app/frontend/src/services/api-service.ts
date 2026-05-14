@@ -9,6 +9,11 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL ?? '/api'
 type LoginApiResponse = {
   data: {
     token: string
+    user: {
+      id: number
+      username: string
+      email: string
+    }
   }
 }
 
@@ -16,6 +21,7 @@ type DashboardApiResponse = {
   data: {
     modules: ModuleItem[]
     summary: {
+      username: string
       location_count: number
     }
   }
@@ -151,19 +157,25 @@ export const createLocation = async (
       descriptive_location: input.descriptiveLocation,
       camera_identifier: input.cameraIdentifier,
       live_feed_url: input.liveFeedUrl,
-      camera_specification: {
-        vendor: input.cameraSpecification.vendor,
-        model: input.cameraSpecification.model,
-        resolution: input.cameraSpecification.resolution,
-        fps: input.cameraSpecification.fps,
-        field_of_view: input.cameraSpecification.fieldOfView,
-      },
-      yolo_model_metadata: {
-        model_name: input.yoloModelMetadata.modelName,
-        model_version: input.yoloModelMetadata.modelVersion,
-        confidence_threshold: input.yoloModelMetadata.confidenceThreshold,
-        iou_threshold: input.yoloModelMetadata.iouThreshold,
-      },
+      camera_specification:
+        input.cameraSpecification === null
+          ? null
+          : {
+              vendor: input.cameraSpecification.vendor,
+              model: input.cameraSpecification.model,
+              resolution: input.cameraSpecification.resolution,
+              fps: input.cameraSpecification.fps,
+              field_of_view: input.cameraSpecification.fieldOfView,
+            },
+      yolo_model_metadata:
+        input.yoloModelMetadata === null
+          ? null
+          : {
+              model_name: input.yoloModelMetadata.modelName,
+              model_version: input.yoloModelMetadata.modelVersion,
+              confidence_threshold: input.yoloModelMetadata.confidenceThreshold,
+              iou_threshold: input.yoloModelMetadata.iouThreshold,
+            },
       latitude: input.latitude,
       longitude: input.longitude,
     }),

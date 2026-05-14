@@ -38,13 +38,13 @@ export type CreateCameraLocationInput = {
     resolution: string | null
     fps: number | null
     fieldOfView: string | null
-  }
+  } | null
   yoloModelMetadata: {
     modelName: string | null
     modelVersion: string | null
     confidenceThreshold: number | null
     iouThreshold: number | null
-  }
+  } | null
   latitude: number | null
   longitude: number | null
 }
