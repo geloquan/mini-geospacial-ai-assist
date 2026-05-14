@@ -1,12 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { DragEvent, FormEvent } from 'react'
 import './App.css'
-import {
-  createLocation,
-  loadDashboardData,
-  login,
-} from './services/api-service'
-import type { CameraLocation, ModuleItem } from './types/geospatial'
+import { login } from './services/api-service'
+import type { CameraLocation } from './types/geospatial'
+import { useDashboardQuery } from './hooks/use-dashboard-query'
+import { useCreateLocationMutation } from './hooks/use-create-location-mutation'
 
 type CameraBinding = {
   id: string
@@ -96,11 +94,6 @@ function App() {
   const [token, setToken] = useState<string | null>(localStorage.getItem(TOKEN_KEY))
   const [loginError, setLoginError] = useState('')
   const [isAuthenticating, setIsAuthenticating] = useState(false)
-
-  const [modules, setModules] = useState<ModuleItem[]>([])
-  const [locationCount, setLocationCount] = useState(0)
-  const [locations, setLocations] = useState<CameraLocation[]>([])
-  const [loadError, setLoadError] = useState('')
   const [locationFormError, setLocationFormError] = useState('')
   const [cameraFormError, setCameraFormError] = useState('')
   const [predictionFormError, setPredictionFormError] = useState('')
@@ -156,48 +149,43 @@ function App() {
     readStorage<UploadedYoloModel[]>(YOLO_UPLOADS_KEY, []),
   )
 
+  const {
+    data: dashboardData,
+    error: dashboardError,
+  } = useDashboardQuery(token)
+  const createLocationMutation = useCreateLocationMutation()
+  const modules = dashboardData?.modules ?? []
+  const locationCount = dashboardData?.locationCount ?? 0
+  const locations: CameraLocation[] = dashboardData?.locations ?? []
+  const loadError =
+    dashboardError instanceof Error ? dashboardError.message : ''
+
   useEffect(() => {
-    if (token === null) {
+    if (locations.length === 0) {
       return
     }
 
-    const loadDashboard = async () => {
-      try {
-        const payload = await loadDashboardData(token)
-
-        setModules(payload.modules)
-        setLocationCount(payload.locationCount)
-        setLocations(payload.locations)
-        setCameras((current) => {
-          if (current.length > 0) {
-            return current
-          }
-
-          const seeded = payload.locations
-            .filter((location) => location.cameraIdentifier !== null)
-            .map((location) => {
-              return {
-                id: makeId(),
-                name: location.cameraIdentifier ?? `${location.locationName} camera`,
-                liveFeedUrl: location.liveFeedUrl ?? '',
-                yoloModelName: toModelString(location.yoloModelMetadata?.modelName),
-                yoloModelVersion: toModelString(location.yoloModelMetadata?.modelVersion),
-                locationId: location.id,
-              }
-            })
-
-          return seeded.length > 0 ? seeded : current
-        })
-        setLoadError('')
-      } catch (error) {
-        setLoadError(
-          error instanceof Error ? error.message : 'Unable to load dashboard data.',
-        )
+    setCameras((current) => {
+      if (current.length > 0) {
+        return current
       }
-    }
 
-    void loadDashboard()
-  }, [token])
+      const seeded = locations
+        .filter((location) => location.cameraIdentifier !== null)
+        .map((location) => {
+          return {
+            id: makeId(),
+            name: location.cameraIdentifier ?? `${location.locationName} camera`,
+            liveFeedUrl: location.liveFeedUrl ?? '',
+            yoloModelName: toModelString(location.yoloModelMetadata?.modelName),
+            yoloModelVersion: toModelString(location.yoloModelMetadata?.modelVersion),
+            locationId: location.id,
+          }
+        })
+
+      return seeded.length > 0 ? seeded : current
+    })
+  }, [locations])
 
   useEffect(() => {
     writeStorage(CAMERAS_KEY, cameras)
@@ -285,7 +273,9 @@ function App() {
         iouThreshold: iouThreshold === '' ? null : Number(iouThreshold),
       }
 
-      const createdLocation = await createLocation(token, {
+      await createLocationMutation.mutateAsync({
+        token,
+        payload: {
         locationName,
         descriptiveLocation,
         cameraIdentifier: cameraIdentifier || null,
@@ -298,10 +288,8 @@ function App() {
           : yoloModelMetadataInput,
         latitude: latitude === '' ? null : Number(latitude),
         longitude: longitude === '' ? null : Number(longitude),
+      },
       })
-
-      setLocations((current) => [createdLocation, ...current])
-      setLocationCount((current) => current + 1)
       setLocationName('')
       setDescriptiveLocation('')
       setCameraIdentifier('')
@@ -520,11 +508,7 @@ function App() {
   const onLogout = () => {
     localStorage.removeItem(TOKEN_KEY)
     setToken(null)
-    setModules([])
-    setLocationCount(0)
-    setLocations([])
     setLocationFormError('')
-    setLoadError('')
   }
 
   if (token === null) {
