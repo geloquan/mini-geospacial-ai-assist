@@ -224,6 +224,28 @@ function App() {
         setModules(dashboardJson.data.modules)
         setLocationCount(dashboardJson.data.summary.location_count)
         setLocations(locationsJson.data)
+        setCameras((current) => {
+          if (current.length > 0) {
+            return current
+          }
+
+          const seeded = locationsJson.data
+            .filter((location) => location.camera_identifier !== null)
+            .map((location) => {
+              const metadata = location.yolo_model_metadata ?? {}
+
+              return {
+                id: makeId(),
+                name: location.camera_identifier ?? `${location.location_name} camera`,
+                liveFeedUrl: location.live_feed_url ?? '',
+                yoloModelName: toModelString(metadata.model_name),
+                yoloModelVersion: toModelString(metadata.model_version),
+                locationId: location.id,
+              }
+            })
+
+          return seeded.length > 0 ? seeded : current
+        })
         setLoadError('')
       } catch (error) {
         setLoadError(
@@ -255,45 +277,16 @@ function App() {
     writeStorage(YOLO_UPLOADS_KEY, uploadedYoloModels)
   }, [uploadedYoloModels])
 
-  useEffect(() => {
-    if (locations.length > 0 && selectedLocationId === null) {
-      setSelectedLocationId(locations[0].id)
-    }
-  }, [locations, selectedLocationId])
-
-  useEffect(() => {
-    if (cameras.length > 0 || locations.length === 0) {
-      return
-    }
-
-    const seeded = locations
-      .filter((location) => location.camera_identifier !== null)
-      .map((location) => {
-        const metadata = location.yolo_model_metadata ?? {}
-
-        return {
-          id: makeId(),
-          name: location.camera_identifier ?? `${location.location_name} camera`,
-          liveFeedUrl: location.live_feed_url ?? '',
-          yoloModelName: toModelString(metadata.model_name),
-          yoloModelVersion: toModelString(metadata.model_version),
-          locationId: location.id,
-        }
-      })
-
-    if (seeded.length > 0) {
-      setCameras(seeded)
-    }
-  }, [cameras.length, locations])
+  const effectiveSelectedLocationId = selectedLocationId ?? locations[0]?.id ?? null
 
   const selectedLocation = useMemo(
-    () => locations.find((location) => location.id === selectedLocationId) ?? null,
-    [locations, selectedLocationId],
+    () => locations.find((location) => location.id === effectiveSelectedLocationId) ?? null,
+    [effectiveSelectedLocationId, locations],
   )
 
   const selectedLocationCameras = useMemo(
-    () => cameras.filter((camera) => camera.locationId === selectedLocationId),
-    [cameras, selectedLocationId],
+    () => cameras.filter((camera) => camera.locationId === effectiveSelectedLocationId),
+    [cameras, effectiveSelectedLocationId],
   )
 
   const groupedAliases = useMemo(() => {
@@ -928,7 +921,7 @@ function App() {
         <label className="compact-label">
           Select Location
           <select
-            value={selectedLocationId ?? ''}
+            value={effectiveSelectedLocationId ?? ''}
             onChange={(event) =>
               setSelectedLocationId(
                 event.target.value === '' ? null : Number(event.target.value),
