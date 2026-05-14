@@ -54,7 +54,7 @@ return Application::configure(basePath: dirname(__DIR__))
             }
 
             if ($statusCode === Response::HTTP_INTERNAL_SERVER_ERROR && ! config('app.debug')) {
-                $message = 'Internal Server Error.';
+                $message = 'Internal Server Error';
             }
 
             return response()->json([
