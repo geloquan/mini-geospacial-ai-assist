@@ -63,7 +63,7 @@ class ImageProcessorController extends Controller
         if ($request->hasFile('model_file')) {
             /** @var UploadedFile $uploadedModel */
             $uploadedModel = $request->file('model_file');
-            $payload['model_path'] = $uploadedModel->store('image-processors/models');
+            $payload['model_path'] = $uploadedModel->store('image-processors/models', 'local');
         }
 
         return $payload;
