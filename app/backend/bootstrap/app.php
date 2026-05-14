@@ -8,7 +8,6 @@ use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
-use Throwable;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -40,11 +39,22 @@ return Application::configure(basePath: dirname(__DIR__))
             $message = trim($exception->getMessage());
 
             if ($statusCode >= Response::HTTP_INTERNAL_SERVER_ERROR && ! config('app.debug')) {
-                $message = 'Internal server error.';
+                $message = 'Internal Server Error.';
             }
 
             if ($message === '') {
-                $message = Response::$statusTexts[$statusCode] ?? 'Request failed.';
+                $message = match ($statusCode) {
+                    Response::HTTP_BAD_REQUEST => 'Bad Request',
+                    Response::HTTP_UNAUTHORIZED => 'Unauthorized',
+                    Response::HTTP_FORBIDDEN => 'Forbidden',
+                    Response::HTTP_NOT_FOUND => 'Not Found',
+                    Response::HTTP_METHOD_NOT_ALLOWED => 'Method Not Allowed',
+                    Response::HTTP_UNPROCESSABLE_ENTITY => 'Unprocessable Entity',
+                    Response::HTTP_TOO_MANY_REQUESTS => 'Too Many Requests',
+                    Response::HTTP_INTERNAL_SERVER_ERROR => 'Internal Server Error',
+                    Response::HTTP_SERVICE_UNAVAILABLE => 'Service Unavailable',
+                    default => 'Request failed.',
+                };
             }
 
             return response()->json([
