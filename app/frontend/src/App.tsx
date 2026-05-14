@@ -38,7 +38,7 @@ type PredictionItem = {
 type ObjectClassItem = { id: string; name: string }
 type AliasGroup = { id: string; alias: string; canonicalClass: string; context: string }
 type UploadedYoloModel = {
-  id: string | number
+  id: number
   fileName: string
   extension: string
   sizeBytes: number
@@ -89,6 +89,17 @@ const makeId = () =>
   typeof crypto !== 'undefined' && 'randomUUID' in crypto
     ? crypto.randomUUID()
     : `${Date.now()}-${Math.random().toString(36).slice(2)}`
+
+const normalizeUploadedYoloModels = (models: UploadedYoloModel[]): UploadedYoloModel[] =>
+  models.map((model, index) => {
+    const parsedId = Number(model.id)
+
+    return {
+      ...model,
+      id: Number.isFinite(parsedId) ? parsedId : Date.now() + index,
+      modelPath: model.modelPath ?? null,
+    }
+  })
 
 // ─── Design Tokens ────────────────────────────────────────────────────────────
 
@@ -550,7 +561,9 @@ function App() {
   const [predictions, setPredictions] = useState<PredictionItem[]>(() => readStorage<PredictionItem[]>(PREDICTIONS_KEY, []))
   const [objectClasses, setObjectClasses] = useState<ObjectClassItem[]>(() => readStorage<ObjectClassItem[]>(OBJECT_CLASSES_KEY, []))
   const [aliasGroups, setAliasGroups] = useState<AliasGroup[]>(() => readStorage<AliasGroup[]>(ALIAS_GROUPS_KEY, []))
-  const [uploadedYoloModels, setUploadedYoloModels] = useState<UploadedYoloModel[]>(() => readStorage<UploadedYoloModel[]>(YOLO_UPLOADS_KEY, []))
+  const [uploadedYoloModels, setUploadedYoloModels] = useState<UploadedYoloModel[]>(() =>
+    normalizeUploadedYoloModels(readStorage<UploadedYoloModel[]>(YOLO_UPLOADS_KEY, []))
+  )
 
   const { data: dashboardData, error: dashboardError } = useDashboardQuery(token)
   const createLocationMutation = useCreateLocationMutation()

@@ -251,7 +251,7 @@ export const uploadImageProcessorModel = async (
   const extensionIndex = file.name.lastIndexOf('.')
   const extension = extensionIndex >= 0 ? file.name.slice(extensionIndex).toLowerCase() : ''
   const formData = new FormData()
-  formData.append('name', filenameWithoutExtension)
+  formData.append('name', file.name)
   formData.append('model_name', filenameWithoutExtension)
   formData.append('model_file', file)
   formData.append('is_active', '1')
