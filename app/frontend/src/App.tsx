@@ -52,6 +52,7 @@ const ALIAS_GROUPS_KEY = 'mini_geospatial_alias_groups'
 const YOLO_UPLOADS_KEY = 'mini_geospatial_yolo_uploads'
 const MAX_MODEL_SIZE_BYTES = 100 * 1024 * 1024
 const ALLOWED_MODEL_EXTENSIONS = ['.pt', '.onnx', '.engine', '.tflite', '.pb']
+const EMPTY_LOCATIONS: CameraLocation[] = []
 
 const readStorage = <T,>(key: string, fallback: T): T => {
   try {
@@ -75,18 +76,6 @@ const makeId = () =>
   typeof crypto !== 'undefined' && 'randomUUID' in crypto
     ? crypto.randomUUID()
     : `${Date.now()}-${Math.random().toString(36).slice(2)}`
-
-const toModelString = (value: string | number | null | undefined): string => {
-  if (typeof value === 'string') {
-    return value
-  }
-
-  if (typeof value === 'number') {
-    return String(value)
-  }
-
-  return ''
-}
 
 function App() {
   const [username, setUsername] = useState('')
@@ -156,36 +145,9 @@ function App() {
   const createLocationMutation = useCreateLocationMutation()
   const modules = dashboardData?.modules ?? []
   const locationCount = dashboardData?.locationCount ?? 0
-  const locations: CameraLocation[] = dashboardData?.locations ?? []
+  const locations = dashboardData?.locations ?? EMPTY_LOCATIONS
   const loadError =
     dashboardError instanceof Error ? dashboardError.message : ''
-
-  useEffect(() => {
-    if (locations.length === 0) {
-      return
-    }
-
-    setCameras((current) => {
-      if (current.length > 0) {
-        return current
-      }
-
-      const seeded = locations
-        .filter((location) => location.cameraIdentifier !== null)
-        .map((location) => {
-          return {
-            id: makeId(),
-            name: location.cameraIdentifier ?? `${location.locationName} camera`,
-            liveFeedUrl: location.liveFeedUrl ?? '',
-            yoloModelName: toModelString(location.yoloModelMetadata?.modelName),
-            yoloModelVersion: toModelString(location.yoloModelMetadata?.modelVersion),
-            locationId: location.id,
-          }
-        })
-
-      return seeded.length > 0 ? seeded : current
-    })
-  }, [locations])
 
   useEffect(() => {
     writeStorage(CAMERAS_KEY, cameras)
