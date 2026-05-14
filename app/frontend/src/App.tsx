@@ -11,6 +11,7 @@ import { useUploadImageProcessorModelMutation } from './hooks/use-upload-image-p
 
 const TOKEN_KEY = 'mini_geospatial_auth_token'
 const CATALOG_PAGE_SIZE = 10
+const EMPTY_CATALOG_ROWS: Record<string, unknown>[] = []
 
 type DashboardView = 'overview' | 'locations' | 'cameraSources' | 'imageProcessors' | 'catalog'
 
@@ -176,7 +177,7 @@ function App() {
   const locationCount = dashboardData?.locationCount ?? 0
 
   const selectedCatalogLabel = CATALOG_TABLES.find((item) => item.endpoint === selectedCatalogEndpoint)?.label ?? 'Catalog'
-  const catalogRows = catalogData?.rows ?? []
+  const catalogRows = catalogData?.rows ?? EMPTY_CATALOG_ROWS
   const catalogColumns = useMemo(
     () => Array.from(new Set(catalogRows.flatMap((row) => Object.keys(row)))),
     [catalogRows],
