@@ -1,6 +1,6 @@
 .app-shell {
   margin: 0 auto;
-  max-width: 1080px;
+  max-width: 1280px;
   padding: 24px;
   display: grid;
   gap: 16px;
@@ -12,10 +12,21 @@
 }
 
 .panel {
-  border: 1px solid #d6d9df;
-  border-radius: 12px;
+  border: 1px solid #dce3f1;
+  border-radius: 14px;
   padding: 20px;
   background: #fff;
+  box-shadow: 0 14px 32px rgba(16, 24, 40, 0.04);
+}
+
+.auth-card {
+  max-width: 460px;
+}
+
+.sub-panel {
+  border: 1px solid #e5e9f4;
+  border-radius: 12px;
+  padding: 14px;
 }
 
 .app-header {
@@ -23,6 +34,7 @@
   justify-content: space-between;
   gap: 12px;
   align-items: center;
+  background: linear-gradient(120deg, #eef4ff, #ffffff);
 }
 
 .module-grid,
@@ -32,12 +44,37 @@
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
 }
 
+.two-column-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 12px;
+}
+
 .module-card,
-.location-card {
-  border: 1px solid #d6d9df;
-  border-radius: 10px;
+.location-card,
+.drop-zone {
+  border: 1px solid #dde5f3;
+  border-radius: 12px;
   padding: 12px;
   text-align: left;
+  background: #fdfdff;
+}
+
+.drop-zone {
+  border-style: dashed;
+  background: #fbfcff;
+}
+
+.drop-grid {
+  margin-top: 12px;
+}
+
+.draggable-card {
+  cursor: grab;
+}
+
+.draggable-card:active {
+  cursor: grabbing;
 }
 
 .grid-form {
@@ -49,20 +86,25 @@
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
 }
 
-.grid-form label {
+.grid-form label,
+.compact-label {
   display: grid;
   gap: 6px;
   font-size: 14px;
 }
 
 .grid-form input,
-.grid-form textarea {
+.grid-form textarea,
+.grid-form select,
+.compact-label select,
+input[type='file'] {
   width: 100%;
   box-sizing: border-box;
-  border: 1px solid #b7bcc8;
+  border: 1px solid #bfc8da;
   border-radius: 8px;
   padding: 8px 10px;
   font: inherit;
+  background: #fff;
 }
 
 .grid-form button,
@@ -85,11 +127,43 @@
   grid-column: 1 / -1;
 }
 
-.error-text {
-  color: #b42318;
-  margin: 0;
+.pill-list {
+  list-style: none;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 0;
+  margin: 12px 0 0;
 }
 
-.url-text {
-  word-break: break-all;
+.pill-list li {
+  border: 1px solid #d3ddee;
+  border-radius: 999px;
+  padding: 4px 10px;
+  background: #f6f9ff;
+}
+
+.alias-groups {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.alias-groups ul {
+  margin: 8px 0 0;
+  padding-left: 18px;
+}
+
+.bold-text {
+  font-weight: 600;
+}
+
+.hint-text {
+  color: #475467;
+  margin-top: 4px;
+}
+
+.error-text {
+  color: #b42318;
+  margin-top: 8px;
 }
