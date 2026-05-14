@@ -1,85 +1,67 @@
 .app-shell {
-  margin: 0 auto;
-  max-width: 1280px;
-  padding: 24px;
-  display: grid;
-  gap: 16px;
+  @apply mx-auto grid max-w-[1400px] gap-4 px-4 py-6 md:px-6;
 }
 
 .auth-shell {
-  min-height: 100vh;
-  place-content: center;
+  @apply min-h-screen place-content-center;
 }
 
 .panel {
-  border: 1px solid #dce3f1;
-  border-radius: 14px;
-  padding: 20px;
-  background: #fff;
-  box-shadow: 0 14px 32px rgba(16, 24, 40, 0.04);
+  @apply relative overflow-hidden rounded-2xl border border-slate-700/70 bg-slate-900/70 p-5 shadow-2xl backdrop-blur-xl;
+}
+
+.panel::before {
+  content: '';
+  @apply pointer-events-none absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-blue-400/10 to-transparent;
 }
 
 .auth-card {
-  max-width: 460px;
+  @apply mx-auto w-full max-w-[460px];
 }
 
 .sub-panel {
-  border: 1px solid #e5e9f4;
-  border-radius: 12px;
-  padding: 14px;
+  @apply rounded-xl border border-slate-700/80 bg-slate-950/60 p-4;
 }
 
 .app-header {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  align-items: center;
-  background: linear-gradient(120deg, #eef4ff, #ffffff);
+  @apply flex items-center justify-between gap-3 border-blue-500/30 bg-gradient-to-r from-slate-900/85 via-slate-900/70 to-blue-900/40;
 }
 
 .module-grid,
 .location-grid {
-  display: grid;
-  gap: 12px;
+  @apply grid gap-3;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
 }
 
 .two-column-grid {
-  display: grid;
+  @apply grid gap-3;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 12px;
 }
 
 .module-card,
 .location-card,
 .drop-zone {
-  border: 1px solid #dde5f3;
-  border-radius: 12px;
-  padding: 12px;
-  text-align: left;
-  background: #fdfdff;
+  @apply rounded-xl border border-slate-700/70 bg-slate-950/50 p-3 text-left shadow-sm shadow-slate-950/50;
 }
 
 .drop-zone {
-  border-style: dashed;
-  background: #fbfcff;
+  @apply border-dashed bg-slate-900/35;
 }
 
 .drop-grid {
-  margin-top: 12px;
+  @apply mt-3;
 }
 
 .draggable-card {
-  cursor: grab;
+  @apply cursor-grab transition hover:border-blue-400/50 hover:bg-slate-900/80;
 }
 
 .draggable-card:active {
-  cursor: grabbing;
+  @apply cursor-grabbing;
 }
 
 .grid-form {
-  display: grid;
-  gap: 12px;
+  @apply grid gap-3;
 }
 
 .three-column {
@@ -88,9 +70,7 @@
 
 .grid-form label,
 .compact-label {
-  display: grid;
-  gap: 6px;
-  font-size: 14px;
+  @apply grid gap-1.5 text-sm text-slate-200;
 }
 
 .grid-form input,
@@ -98,29 +78,19 @@
 .grid-form select,
 .compact-label select,
 input[type='file'] {
-  width: 100%;
+  @apply w-full rounded-lg border border-slate-700/90 bg-slate-950/60 px-2.5 py-2 text-slate-100 outline-none ring-0 transition focus:border-blue-500/80 focus:shadow-[0_0_0_3px_rgba(59,130,246,0.25)];
   box-sizing: border-box;
-  border: 1px solid #bfc8da;
-  border-radius: 8px;
-  padding: 8px 10px;
   font: inherit;
-  background: #fff;
 }
 
 .grid-form button,
 .app-header button {
-  border: 0;
-  border-radius: 8px;
-  background: #1f6feb;
-  color: #fff;
+  @apply cursor-pointer rounded-lg border border-blue-500/60 bg-gradient-to-r from-blue-600 to-violet-600 px-3.5 py-2 font-medium text-white transition hover:from-blue-500 hover:to-violet-500;
   font: inherit;
-  padding: 8px 14px;
-  cursor: pointer;
 }
 
 .grid-form button:disabled {
-  opacity: 0.65;
-  cursor: not-allowed;
+  @apply cursor-not-allowed opacity-65;
 }
 
 .full-width {
@@ -128,42 +98,29 @@ input[type='file'] {
 }
 
 .pill-list {
-  list-style: none;
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  padding: 0;
-  margin: 12px 0 0;
+  @apply m-0 mt-3 flex list-none flex-wrap gap-2 p-0;
 }
 
 .pill-list li {
-  border: 1px solid #d3ddee;
-  border-radius: 999px;
-  padding: 4px 10px;
-  background: #f6f9ff;
+  @apply rounded-full border border-violet-400/35 bg-violet-500/15 px-2.5 py-1 text-xs;
 }
 
 .alias-groups {
-  display: grid;
-  gap: 8px;
-  margin-top: 12px;
+  @apply mt-3 grid gap-2;
 }
 
 .alias-groups ul {
-  margin: 8px 0 0;
-  padding-left: 18px;
+  @apply mb-0 mt-2 pl-[18px];
 }
 
 .bold-text {
-  font-weight: 600;
+  @apply font-semibold;
 }
 
 .hint-text {
-  color: #475467;
-  margin-top: 4px;
+  @apply mt-1 text-slate-300;
 }
 
 .error-text {
-  color: #b42318;
-  margin-top: 8px;
+  @apply mt-2 text-rose-400;
 }
