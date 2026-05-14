@@ -1,4 +1,4 @@
-# Copilot Instructions — mini-geospacial-ai-assist Monorepo
+# Copilot Instructions — mini-geospatial-ai-assist Monorepo
 
 ## Repository Intent (Read First)
 - This is a monorepo for an AI-assisted geospatial security and analytics platform.
