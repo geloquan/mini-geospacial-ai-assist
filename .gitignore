@@ -4,7 +4,7 @@ app/backend/.env.backup
 app/backend/.env.production
 app/backend/.phpactor.json
 app/backend/.phpunit.result.cache
-app/backend//.codex
+app/backend/.codex
 app/backend/.cursor/
 app/backend/.idea
 app/backend/.nova
