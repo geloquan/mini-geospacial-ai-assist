@@ -9,6 +9,14 @@ export const dashboardKeys = {
 export const useDashboardQuery = (token: string | null) =>
   useQuery({
     queryKey: dashboardKeys.detail(token),
-    queryFn: () => loadDashboardData(token as string),
+    queryFn: ({ queryKey }) => {
+      const authToken = queryKey[1]
+
+      if (authToken === null) {
+        throw new Error('Please login first.')
+      }
+
+      return loadDashboardData(authToken)
+    },
     enabled: token !== null,
   })
