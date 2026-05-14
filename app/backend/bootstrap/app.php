@@ -38,10 +38,6 @@ return Application::configure(basePath: dirname(__DIR__))
 
             $message = trim($exception->getMessage());
 
-            if ($statusCode >= Response::HTTP_INTERNAL_SERVER_ERROR && ! config('app.debug')) {
-                $message = 'Internal Server Error.';
-            }
-
             if ($message === '') {
                 $message = match ($statusCode) {
                     Response::HTTP_BAD_REQUEST => 'Bad Request',
@@ -55,6 +51,10 @@ return Application::configure(basePath: dirname(__DIR__))
                     Response::HTTP_SERVICE_UNAVAILABLE => 'Service Unavailable',
                     default => 'Request failed.',
                 };
+            }
+
+            if ($statusCode === Response::HTTP_INTERNAL_SERVER_ERROR && ! config('app.debug')) {
+                $message = 'Internal Server Error.';
             }
 
             return response()->json([
