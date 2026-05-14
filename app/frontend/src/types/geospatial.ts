@@ -23,8 +23,8 @@ export type CameraLocation = {
     confidenceThreshold: number | null
     iouThreshold: number | null
   } | null
-  latitude: number | string | null
-  longitude: number | string | null
+  latitude: number | null
+  longitude: number | null
 }
 
 export type CreateCameraLocationInput = {

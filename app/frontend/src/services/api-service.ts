@@ -34,17 +34,17 @@ type ApiCameraLocation = {
   camera_identifier: string | null
   live_feed_url: string | null
   camera_specification: {
-    vendor?: string | null
-    model?: string | null
-    resolution?: string | null
-    fps?: number | null
-    field_of_view?: string | null
+    vendor: string | null
+    model: string | null
+    resolution: string | null
+    fps: number | null
+    field_of_view: string | null
   } | null
   yolo_model_metadata: {
-    model_name?: string | null
-    model_version?: string | null
-    confidence_threshold?: number | null
-    iou_threshold?: number | null
+    model_name: string | null
+    model_version: string | null
+    confidence_threshold: number | null
+    iou_threshold: number | null
   } | null
   latitude: number | string | null
   longitude: number | string | null
@@ -56,6 +56,15 @@ type LocationsApiResponse = {
 
 type StoreLocationApiResponse = {
   data: ApiCameraLocation
+}
+
+const toNullableNumber = (value: number | string | null): number | null => {
+  if (value === null) {
+    return null
+  }
+
+  const parsed = typeof value === 'string' ? Number(value) : value
+  return Number.isFinite(parsed) ? parsed : null
 }
 
 const mapCameraLocation = (location: ApiCameraLocation): CameraLocation => ({
@@ -83,8 +92,8 @@ const mapCameraLocation = (location: ApiCameraLocation): CameraLocation => ({
           confidenceThreshold: location.yolo_model_metadata.confidence_threshold ?? null,
           iouThreshold: location.yolo_model_metadata.iou_threshold ?? null,
         },
-  latitude: location.latitude,
-  longitude: location.longitude,
+  latitude: toNullableNumber(location.latitude),
+  longitude: toNullableNumber(location.longitude),
 })
 
 const getErrorMessage = async (response: Response): Promise<string> => {
