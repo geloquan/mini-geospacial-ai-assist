@@ -20,6 +20,8 @@ class StoreImageProcessorRequest extends FormRequest
             'name' => ['required', 'string', 'max:255'],
             'model_name' => ['nullable', 'string', 'max:255'],
             'model_version' => ['nullable', 'string', 'max:255'],
+            'model_path' => ['nullable', 'string', 'max:2048'],
+            'model_file' => ['nullable', 'file', 'extensions:pt,onnx,engine,tflite,pb', 'max:102400'],
             'metadata' => ['nullable', 'array'],
             'is_active' => ['sometimes', 'boolean'],
         ];

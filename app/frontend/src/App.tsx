@@ -6,6 +6,7 @@ import type { CameraLocation } from './types/geospatial'
 import { useDashboardQuery } from './hooks/use-dashboard-query'
 import { useCreateLocationMutation } from './hooks/use-create-location-mutation'
 import { useCatalogTableQuery } from './hooks/use-catalog-table-query'
+import { useUploadImageProcessorModelMutation } from './hooks/use-upload-image-processor-model-mutation'
 import {
   Shield, LogOut, LogIn, MapPin, Camera, Activity, Cpu, Upload, Plus,
   Tag, Link2, Eye, Crosshair, Layers, AlertTriangle, ChevronRight,
@@ -37,11 +38,12 @@ type PredictionItem = {
 type ObjectClassItem = { id: string; name: string }
 type AliasGroup = { id: string; alias: string; canonicalClass: string; context: string }
 type UploadedYoloModel = {
-  id: string
+  id: string | number
   fileName: string
   extension: string
   sizeBytes: number
   uploadedAt: string
+  modelPath: string | null
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -552,6 +554,7 @@ function App() {
 
   const { data: dashboardData, error: dashboardError } = useDashboardQuery(token)
   const createLocationMutation = useCreateLocationMutation()
+  const uploadImageProcessorModelMutation = useUploadImageProcessorModelMutation()
   const {
     data: catalogTableData,
     error: catalogTableError,
@@ -695,19 +698,42 @@ function App() {
   }
 
   const onAttachUpload = (e: FormEvent<HTMLInputElement>) => {
-    const file = e.currentTarget.files?.[0]
+    const input = e.currentTarget
+    const file = input.files?.[0]
     if (!file) return
+
     const dot = file.name.lastIndexOf('.')
     const ext = dot >= 0 ? file.name.slice(dot).toLowerCase() : ''
     if (!ALLOWED_MODEL_EXTENSIONS.includes(ext)) {
       setUploadError(`Invalid extension. Allowed: ${ALLOWED_MODEL_EXTENSIONS.join(', ')}`)
-      e.currentTarget.value = ''; return
+      input.value = ''
+      return
     }
-    if (file.size > MAX_MODEL_SIZE_BYTES) { setUploadError('File exceeds 100MB limit.'); e.currentTarget.value = ''; return }
-    setUploadedYoloModels((cur) => [{
-      id: makeId(), fileName: file.name, extension: ext, sizeBytes: file.size, uploadedAt: new Date().toISOString(),
-    }, ...cur])
-    setUploadError(''); e.currentTarget.value = ''
+    if (file.size > MAX_MODEL_SIZE_BYTES) {
+      setUploadError('File exceeds 100MB limit.')
+      input.value = ''
+      return
+    }
+    if (!token) {
+      setUploadError('Please login first.')
+      input.value = ''
+      return
+    }
+
+    void (async () => {
+      try {
+        const uploadedModel = await uploadImageProcessorModelMutation.mutateAsync({
+          token,
+          file,
+        })
+        setUploadedYoloModels((cur) => [uploadedModel, ...cur])
+        setUploadError('')
+      } catch (err) {
+        setUploadError(err instanceof Error ? err.message : 'Model upload failed.')
+      } finally {
+        input.value = ''
+      }
+    })()
   }
 
   const onDragCamera = (e: DragEvent<HTMLElement>, cameraId: string) => e.dataTransfer.setData('text/plain', cameraId)
@@ -1463,7 +1489,7 @@ function App() {
                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor='rgba(14,165,233,0.3)'; (e.currentTarget as HTMLElement).style.background='rgba(14,165,233,0.04)' }}
           >
             <Upload size={15} strokeWidth={1.5}/>
-            <span>Choose model file to upload</span>
+            <span>{uploadImageProcessorModelMutation.isPending ? 'Uploading model…' : 'Choose model file to upload'}</span>
             <input type="file" accept={ALLOWED_MODEL_EXTENSIONS.join(',')} onInput={onAttachUpload} style={{ display:'none' }}/>
           </label>
 
@@ -1485,6 +1511,13 @@ function App() {
                         <Clock size={9} color='var(--text-hint)'/>
                         <span style={{ fontFamily:"'JetBrains Mono',monospace",fontSize:9,color:'var(--text-hint)' }}>{new Date(u.uploadedAt).toLocaleString()}</span>
                       </div>
+                      {u.modelPath && (
+                        <div style={{ marginTop:6 }}>
+                          <span style={{ fontFamily:"'JetBrains Mono',monospace",fontSize:9,color:'var(--text-secondary)',wordBreak:'break-all' }}>
+                            {u.modelPath}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </Card>

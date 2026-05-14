@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'name',
     'model_name',
     'model_version',
+    'model_path',
     'metadata',
     'is_active',
 ])]

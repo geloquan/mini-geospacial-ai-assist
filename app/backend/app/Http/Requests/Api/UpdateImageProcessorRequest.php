@@ -20,6 +20,8 @@ class UpdateImageProcessorRequest extends FormRequest
             'name' => ['sometimes', 'required', 'string', 'max:255'],
             'model_name' => ['sometimes', 'nullable', 'string', 'max:255'],
             'model_version' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'model_path' => ['sometimes', 'nullable', 'string', 'max:2048'],
+            'model_file' => ['sometimes', 'nullable', 'file', 'extensions:pt,onnx,engine,tflite,pb', 'max:102400'],
             'metadata' => ['sometimes', 'nullable', 'array'],
             'is_active' => ['sometimes', 'boolean'],
         ];

@@ -58,6 +58,28 @@ type StoreLocationApiResponse = {
   data: ApiCameraLocation
 }
 
+type ApiImageProcessor = {
+  id: number
+  name: string
+  model_name: string | null
+  model_version: string | null
+  model_path: string | null
+  created_at: string
+}
+
+type StoreImageProcessorApiResponse = {
+  data: ApiImageProcessor
+}
+
+export type UploadedImageProcessor = {
+  id: number
+  fileName: string
+  extension: string
+  sizeBytes: number
+  uploadedAt: string
+  modelPath: string | null
+}
+
 export type CatalogResourceEndpoint =
   | 'catalog/locations'
   | 'catalog/camera-sources'
@@ -219,6 +241,43 @@ export const createLocation = async (
   })
 
   return mapCameraLocation(payload.data)
+}
+
+export const uploadImageProcessorModel = async (
+  token: string,
+  file: File,
+): Promise<UploadedImageProcessor> => {
+  const filenameWithoutExtension = file.name.replace(/\.[^/.]+$/, '')
+  const extensionIndex = file.name.lastIndexOf('.')
+  const extension = extensionIndex >= 0 ? file.name.slice(extensionIndex).toLowerCase() : ''
+  const formData = new FormData()
+  formData.append('name', filenameWithoutExtension)
+  formData.append('model_name', filenameWithoutExtension)
+  formData.append('model_file', file)
+  formData.append('is_active', '1')
+
+  const response = await fetch(`${API_BASE}/catalog/image-processors`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    body: formData,
+  })
+
+  if (!response.ok) {
+    throw new Error(await getErrorMessage(response))
+  }
+
+  const payload = (await response.json()) as StoreImageProcessorApiResponse
+
+  return {
+    id: payload.data.id,
+    fileName: file.name,
+    extension,
+    sizeBytes: file.size,
+    uploadedAt: payload.data.created_at,
+    modelPath: payload.data.model_path,
+  }
 }
 
 export const loadCatalogTable = async (

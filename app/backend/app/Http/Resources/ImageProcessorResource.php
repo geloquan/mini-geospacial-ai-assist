@@ -17,6 +17,7 @@ class ImageProcessorResource extends JsonResource
             'name' => $this->name,
             'model_name' => $this->model_name,
             'model_version' => $this->model_version,
+            'model_path' => $this->model_path,
             'metadata' => $this->metadata,
             'is_active' => $this->is_active,
             'created_at' => $this->created_at,
