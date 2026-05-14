@@ -4,6 +4,13 @@ import { login } from './services/api-service'
 import type { CameraLocation } from './types/geospatial'
 import { useDashboardQuery } from './hooks/use-dashboard-query'
 import { useCreateLocationMutation } from './hooks/use-create-location-mutation'
+import {
+  Shield, LogOut, LogIn, MapPin, Camera, Activity, Cpu, Upload, Plus,
+  Tag, Link2, Eye, Crosshair, Layers, AlertTriangle, ChevronRight,
+  Info, GripVertical, Wifi, Sliders, Box, Maximize2, Zap, Globe,
+  CheckCircle2, XCircle, Hash, Clock, BarChart2, Database, FileCode2,
+  HelpCircle, Move, LayoutGrid, ScanLine as ScanIcon, Settings2,
+} from 'lucide-react'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -53,9 +60,7 @@ const readStorage = <T,>(key: string, fallback: T): T => {
   try {
     const raw = localStorage.getItem(key)
     return raw === null ? fallback : (JSON.parse(raw) as T)
-  } catch {
-    return fallback
-  }
+  } catch { return fallback }
 }
 const writeStorage = <T,>(key: string, value: T) =>
   localStorage.setItem(key, JSON.stringify(value))
@@ -65,154 +70,410 @@ const makeId = () =>
     ? crypto.randomUUID()
     : `${Date.now()}-${Math.random().toString(36).slice(2)}`
 
-// ─── Aceternity-style UI components ──────────────────────────────────────────
+// ─── Design Tokens ────────────────────────────────────────────────────────────
 
-/** Animated scanner line that sweeps top→bottom */
+const css = `
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; }
+
+  :root {
+    --bg-base: #070b10;
+    --bg-surface: #0c1117;
+    --bg-elevated: #111827;
+    --bg-overlay: rgba(17,24,39,0.92);
+    --border-subtle: rgba(255,255,255,0.06);
+    --border-default: rgba(255,255,255,0.10);
+    --border-strong: rgba(255,255,255,0.18);
+    --emerald: #10b981;
+    --emerald-dim: rgba(16,185,129,0.15);
+    --emerald-glow: rgba(16,185,129,0.35);
+    --sky: #0ea5e9;
+    --sky-dim: rgba(14,165,233,0.12);
+    --amber: #f59e0b;
+    --amber-dim: rgba(245,158,11,0.12);
+    --rose: #f43f5e;
+    --rose-dim: rgba(244,63,94,0.12);
+    --text-primary: #f1f5f9;
+    --text-secondary: #94a3b8;
+    --text-muted: #475569;
+    --text-hint: #334155;
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+    --radius-xl: 20px;
+  }
+
+  body { background: var(--bg-base); font-family: 'Outfit', sans-serif; margin: 0; }
+
+  @keyframes scanline {
+    0% { transform: translateY(-100%); }
+    100% { transform: translateY(800%); }
+  }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+  @keyframes pulse-dot {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0.4; }
+  }
+  @keyframes shimmer {
+    0%   { background-position: -400px 0; }
+    100% { background-position: 400px 0; }
+  }
+  @keyframes slideDown {
+    from { opacity: 0; transform: translateY(-6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .fade-up    { animation: fadeUp  0.4s cubic-bezier(.22,1,.36,1) both; }
+  .fade-in    { animation: fadeIn  0.3s ease both; }
+  .slide-down { animation: slideDown 0.25s ease both; }
+
+  .stagger-1 { animation-delay: 0.05s; }
+  .stagger-2 { animation-delay: 0.10s; }
+  .stagger-3 { animation-delay: 0.15s; }
+  .stagger-4 { animation-delay: 0.20s; }
+  .stagger-5 { animation-delay: 0.25s; }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 99px; }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.16); }
+
+  /* Focus-visible ring */
+  *:focus-visible { outline: 2px solid var(--sky); outline-offset: 2px; border-radius: var(--radius-sm); }
+
+  /* Drag cursor */
+  [draggable='true'] { cursor: grab; }
+  [draggable='true']:active { cursor: grabbing; }
+
+  /* Tooltip */
+  .tooltip-wrap { position: relative; display: inline-flex; }
+  .tooltip-wrap:hover .tooltip-box { opacity: 1; pointer-events: auto; transform: translateY(0); }
+  .tooltip-box {
+    position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%) translateY(4px);
+    background: #1e293b; border: 1px solid var(--border-default); border-radius: var(--radius-sm);
+    color: var(--text-secondary); font-size: 11px; font-family: 'JetBrains Mono', monospace;
+    white-space: nowrap; padding: 5px 9px; pointer-events: none;
+    opacity: 0; transition: opacity 0.2s, transform 0.2s; z-index: 50;
+  }
+`
+
+// ─── Primitive Components ──────────────────────────────────────────────────────
+
 function ScanLine() {
   return (
-    <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-2xl">
-      <div
-        className="absolute inset-x-0 h-px bg-gradient-to-r from-transparent via-emerald-400/60 to-transparent"
-        style={{ animation: 'scanline 4s linear infinite' }}
-      />
+    <div style={{ position:'absolute',inset:0,overflow:'hidden',borderRadius:'inherit',pointerEvents:'none' }}>
+      <div style={{
+        position:'absolute',inset:'0 0 auto 0',height:1,
+        background:'linear-gradient(90deg,transparent,rgba(16,185,129,0.5),transparent)',
+        animation:'scanline 5s linear infinite',
+      }}/>
     </div>
   )
 }
 
-/** Aceternity-style "spotlight" card with moving border glow */
-function GlassPanel({ children, className = '' }: { children: ReactNode; className?: string }) {
+function LiveDot({ color = 'emerald' }: { color?: 'emerald'|'sky'|'amber'|'rose' }) {
+  const map = { emerald:'#10b981', sky:'#0ea5e9', amber:'#f59e0b', rose:'#f43f5e' }
   return (
-    <div
-      className={`relative overflow-hidden rounded-2xl border border-slate-700/60 bg-[#111827]/90 p-5 shadow-2xl backdrop-blur-xl ${className}`}
-      style={{
-        boxShadow:
-          '0 0 0 1px rgba(34,197,94,0.07), 0 8px 32px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.04)',
-      }}
-    >
-      {/* top sheen */}
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-emerald-500/8 to-transparent" />
+    <span style={{
+      display:'inline-block',width:6,height:6,borderRadius:'50%',flexShrink:0,
+      background: map[color], animation:'pulse-dot 2s ease infinite',
+      boxShadow:`0 0 6px ${map[color]}`,
+    }}/>
+  )
+}
+
+function Panel({ children, style = {} }: { children: ReactNode; style?: React.CSSProperties }) {
+  return (
+    <section style={{
+      background:'var(--bg-elevated)',
+      border:'1px solid var(--border-subtle)',
+      borderRadius:'var(--radius-xl)',
+      padding:24,
+      boxShadow:'0 4px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.04)',
+      position:'relative',
+      overflow:'hidden',
+      ...style,
+    }}>
+      <div style={{
+        position:'absolute',inset:0,pointerEvents:'none',borderRadius:'inherit',
+        background:'radial-gradient(ellipse at 50% 0%,rgba(16,185,129,0.05) 0%,transparent 70%)',
+      }}/>
       {children}
+    </section>
+  )
+}
+
+function SectionTitle({ icon: Icon, children, badge }: { icon: any; children: ReactNode; badge?: string | number }) {
+  return (
+    <div style={{ display:'flex',alignItems:'center',gap:10,marginBottom:20 }}>
+      <span style={{
+        display:'inline-flex',alignItems:'center',justifyContent:'center',
+        width:32,height:32,borderRadius:8,
+        background:'var(--emerald-dim)',border:'1px solid rgba(16,185,129,0.2)',flexShrink:0,
+      }}>
+        <Icon size={15} color='var(--emerald)' strokeWidth={2}/>
+      </span>
+      <h2 style={{
+        fontFamily:"'JetBrains Mono',monospace",fontSize:11,fontWeight:600,
+        letterSpacing:'0.12em',textTransform:'uppercase',color:'var(--text-primary)',margin:0,
+      }}>{children}</h2>
+      {badge !== undefined && (
+        <span style={{
+          marginLeft:'auto',fontFamily:"'JetBrains Mono',monospace",fontSize:10,
+          color:'var(--emerald)',background:'var(--emerald-dim)',
+          border:'1px solid rgba(16,185,129,0.25)',borderRadius:99,padding:'2px 8px',
+        }}>{badge}</span>
+      )}
+      <span style={{ flex:1,height:1,background:'linear-gradient(90deg,var(--border-subtle),transparent)',marginLeft:8 }}/>
     </div>
   )
 }
 
-/** Moving-border button (Aceternity) */
-function GreenButton({
-                       children,
-                       disabled,
-                       type = 'button',
-                       onClick,
-                     }: {
+/* ── Guided Field: label + icon + input + hint + optional error ── */
+type FieldGuideProps = {
+  label: string
+  icon: any
+  hint?: string
+  error?: string
+  required?: boolean
   children: ReactNode
-  disabled?: boolean
-  type?: 'button' | 'submit'
-  onClick?: () => void
+}
+function FieldGuide({ label, icon: Icon, hint, error, required, children }: FieldGuideProps) {
+  return (
+    <div style={{ display:'grid',gap:5 }}>
+      <label style={{ display:'flex',alignItems:'center',gap:5,userSelect:'none' }}>
+        <Icon size={12} color='var(--text-muted)' strokeWidth={2}/>
+        <span style={{
+          fontFamily:"'JetBrains Mono',monospace",fontSize:10,fontWeight:500,
+          letterSpacing:'0.1em',textTransform:'uppercase',color:'var(--text-secondary)',
+        }}>
+          {label}
+          {required && <span style={{ color:'var(--rose)',marginLeft:2 }}>*</span>}
+        </span>
+      </label>
+      {children}
+      {hint && !error && (
+        <p style={{ margin:0,fontFamily:"'JetBrains Mono',monospace",fontSize:10,color:'var(--text-hint)',display:'flex',alignItems:'center',gap:4 }}>
+          <Info size={9} color='var(--text-hint)'/> {hint}
+        </p>
+      )}
+      {error && (
+        <p style={{ margin:0,fontFamily:"'JetBrains Mono',monospace",fontSize:10,color:'var(--rose)',display:'flex',alignItems:'center',gap:4 }} className="slide-down">
+          <AlertTriangle size={9}/> {error}
+        </p>
+      )}
+    </div>
+  )
+}
+
+const inputStyle: React.CSSProperties = {
+  width:'100%',borderRadius:'var(--radius-sm)',
+  border:'1px solid var(--border-default)',background:'var(--bg-surface)',
+  padding:'8px 11px',fontFamily:"'JetBrains Mono',monospace",fontSize:12,
+  color:'var(--text-primary)',outline:'none',transition:'border-color 0.15s, box-shadow 0.15s',
+  boxSizing:'border-box',
+}
+
+function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
+  const [focused, setFocused] = useState(false)
+  return (
+    <input
+      {...props}
+      onFocus={e => { setFocused(true); props.onFocus?.(e) }}
+      onBlur={e => { setFocused(false); props.onBlur?.(e) }}
+      style={{
+        ...inputStyle,
+        borderColor: focused ? 'var(--sky)' : 'var(--border-default)',
+        boxShadow: focused ? '0 0 0 3px rgba(14,165,233,0.12)' : 'none',
+        ...(props.style||{}),
+      }}
+    />
+  )
+}
+
+function Textarea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
+  const [focused, setFocused] = useState(false)
+  return (
+    <textarea
+      {...props}
+      onFocus={e => { setFocused(true); props.onFocus?.(e) }}
+      onBlur={e => { setFocused(false); props.onBlur?.(e) }}
+      style={{
+        ...inputStyle,resize:'vertical',minHeight:72,
+        borderColor: focused ? 'var(--sky)' : 'var(--border-default)',
+        boxShadow: focused ? '0 0 0 3px rgba(14,165,233,0.12)' : 'none',
+      }}
+    />
+  )
+}
+
+function Select(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
+  const [focused, setFocused] = useState(false)
+  return (
+    <select
+      {...props}
+      onFocus={e => { setFocused(true); props.onFocus?.(e) }}
+      onBlur={e => { setFocused(false); props.onBlur?.(e) }}
+      style={{
+        ...inputStyle,appearance:'none',cursor:'pointer',
+        borderColor: focused ? 'var(--sky)' : 'var(--border-default)',
+        boxShadow: focused ? '0 0 0 3px rgba(14,165,233,0.12)' : 'none',
+        backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")`,
+        backgroundRepeat:'no-repeat',backgroundPosition:'calc(100% - 10px) center',paddingRight:28,
+      }}
+    />
+  )
+}
+
+type BtnVariant = 'emerald' | 'sky' | 'rose' | 'ghost'
+function Btn({
+               children, variant = 'emerald', icon: Icon, disabled, type = 'button', onClick, fullWidth, size = 'md',
+             }: {
+  children: ReactNode; variant?: BtnVariant; icon?: any; disabled?: boolean;
+  type?: 'button'|'submit'; onClick?: () => void; fullWidth?: boolean; size?: 'sm'|'md';
 }) {
+  const styles: Record<BtnVariant,React.CSSProperties> = {
+    emerald: { background:'linear-gradient(135deg,#059669,#10b981)', border:'1px solid rgba(16,185,129,0.4)', color:'#ecfdf5' },
+    sky:     { background:'linear-gradient(135deg,#0369a1,#0ea5e9)', border:'1px solid rgba(14,165,233,0.4)',  color:'#e0f2fe' },
+    rose:    { background:'linear-gradient(135deg,#be123c,#f43f5e)', border:'1px solid rgba(244,63,94,0.4)',   color:'#ffe4e6' },
+    ghost:   { background:'transparent', border:'1px solid var(--border-default)', color:'var(--text-secondary)' },
+  }
+  const hoverShadow: Record<BtnVariant,string> = {
+    emerald:'0 0 20px rgba(16,185,129,0.35)',
+    sky:    '0 0 20px rgba(14,165,233,0.35)',
+    rose:   '0 0 20px rgba(244,63,94,0.35)',
+    ghost:  '0 2px 8px rgba(0,0,0,0.3)',
+  }
+  const [hovered, setHovered] = useState(false)
+  const pad = size === 'sm' ? '5px 12px' : '8px 16px'
   return (
     <button
       type={type}
       disabled={disabled}
       onClick={onClick}
-      className={`
-        relative cursor-pointer overflow-hidden rounded-lg border border-emerald-500/50
-        bg-gradient-to-br from-emerald-700 to-emerald-500 px-4 py-2
-        font-mono text-sm font-medium text-white transition-all duration-200
-        hover:shadow-[0_0_18px_rgba(34,197,94,0.4)] hover:from-emerald-600 hover:to-emerald-400
-        disabled:cursor-not-allowed disabled:opacity-40
-      `}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        ...styles[variant],
+        display:'inline-flex',alignItems:'center',gap:6,cursor:disabled?'not-allowed':'pointer',
+        padding:pad,borderRadius:'var(--radius-sm)',
+        fontFamily:"'JetBrains Mono',monospace",fontSize:11,fontWeight:600,letterSpacing:'0.05em',
+        transition:'box-shadow 0.15s,opacity 0.15s,transform 0.1s',
+        opacity: disabled ? 0.4 : 1,
+        boxShadow: hovered && !disabled ? hoverShadow[variant] : 'none',
+        transform: hovered && !disabled ? 'translateY(-1px)' : 'none',
+        width: fullWidth ? '100%' : undefined,
+        justifyContent: fullWidth ? 'center' : undefined,
+      }}
     >
-      <span className="pointer-events-none absolute inset-x-0 -top-px h-px bg-gradient-to-r from-transparent via-emerald-300/70 to-transparent" />
+      {Icon && <Icon size={13} strokeWidth={2.5}/>}
       {children}
     </button>
   )
 }
 
-function BlueButton({ children, onClick }: { children: ReactNode; onClick?: () => void }) {
+function Badge({ children, variant = 'default' }: { children: ReactNode; variant?: 'emerald'|'sky'|'amber'|'rose'|'default' }) {
+  const colors = {
+    emerald:{ bg:'rgba(16,185,129,0.1)',border:'rgba(16,185,129,0.25)',color:'#34d399' },
+    sky:    { bg:'rgba(14,165,233,0.1)',border:'rgba(14,165,233,0.25)',color:'#38bdf8' },
+    amber:  { bg:'rgba(245,158,11,0.1)',border:'rgba(245,158,11,0.25)',color:'#fbbf24' },
+    rose:   { bg:'rgba(244,63,94,0.1)', border:'rgba(244,63,94,0.25)', color:'#fb7185' },
+    default:{ bg:'rgba(255,255,255,0.05)',border:'rgba(255,255,255,0.1)',color:'var(--text-secondary)' },
+  }
+  const c = colors[variant]
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="cursor-pointer rounded-lg border border-sky-500/50 bg-gradient-to-br from-sky-700 to-sky-500 px-4 py-2 font-mono text-sm font-medium text-white transition-all hover:shadow-[0_0_18px_rgba(14,165,233,0.4)]"
+    <span style={{
+      display:'inline-flex',alignItems:'center',gap:4,
+      padding:'2px 8px',borderRadius:99,fontSize:10,
+      fontFamily:"'JetBrains Mono',monospace",fontWeight:500,
+      background:c.bg,border:`1px solid ${c.border}`,color:c.color,
+    }}>{children}</span>
+  )
+}
+
+function Card({ children, style = {}, draggable, onDragStart }: {
+  children: ReactNode; style?: React.CSSProperties;
+  draggable?: boolean; onDragStart?: (e: DragEvent<HTMLDivElement>) => void;
+}) {
+  const [hovered, setHovered] = useState(false)
+  return (
+    <div
+      draggable={draggable}
+      onDragStart={onDragStart}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        background:'var(--bg-surface)',border:`1px solid ${hovered?'rgba(255,255,255,0.14)':'var(--border-subtle)'}`,
+        borderRadius:'var(--radius-md)',padding:14,
+        transition:'border-color 0.15s,box-shadow 0.15s,transform 0.15s',
+        boxShadow: hovered ? '0 4px 16px rgba(0,0,0,0.3)' : '0 1px 4px rgba(0,0,0,0.2)',
+        transform: hovered && draggable ? 'translateY(-2px) scale(1.01)' : 'none',
+        ...style,
+      }}
     >
       {children}
-    </button>
-  )
-}
-
-/** Aceternity-style input field */
-function Field({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <label className="grid gap-1.5 text-sm text-slate-300">
-      <span className="font-mono text-xs tracking-widest text-slate-400 uppercase">{label}</span>
-      {children}
-    </label>
-  )
-}
-
-const inputCls = `
-  w-full rounded-lg border border-slate-700 bg-[#0b0f14]/70 px-3 py-2
-  font-mono text-sm text-slate-100 outline-none transition-all
-  placeholder:text-slate-600
-  focus:border-sky-500/70 focus:shadow-[0_0_0_3px_rgba(14,165,233,0.15)]
-  box-border
-`
-
-/** Glowing card (Aceternity "GlowingStarsBackgroundCard" vibe) */
-function DataCard({ children, className = '' }: { children: ReactNode; className?: string }) {
-  return (
-    <article
-      className={`rounded-xl border border-slate-700/60 bg-[#0b0f14]/55 p-3 shadow-md transition-all hover:border-slate-600/80 ${className}`}
-    >
-      {children}
-    </article>
-  )
-}
-
-/** Aceternity "BackgroundBeams" strip for header */
-function HeaderBeams() {
-  return (
-    <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-2xl">
-      <div className="absolute inset-0 bg-gradient-to-r from-[#0f172a]/90 via-[#0f172a]/75 to-sky-500/10" />
-      <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-sky-500/10 blur-3xl" />
-      <div className="absolute -left-10 -bottom-10 h-32 w-32 rounded-full bg-emerald-500/8 blur-3xl" />
     </div>
   )
 }
 
-/** Drop zone with dashed animated border */
-function DropZone({
-                    children,
-                    onDragOver,
-                    onDrop,
-                    className = '',
-                  }: {
-  children: ReactNode
-  onDragOver: (e: DragEvent<HTMLElement>) => void
-  onDrop: (e: DragEvent<HTMLElement>) => void
-  className?: string
+function DropZoneCard({ children, onDragOver, onDrop, active = false }: {
+  children: ReactNode; onDragOver: (e: DragEvent<HTMLElement>) => void;
+  onDrop: (e: DragEvent<HTMLElement>) => void; active?: boolean;
 }) {
   return (
-    <article
-      className={`rounded-xl border border-dashed border-sky-500/30 bg-[#111827]/35 p-3 transition-all hover:border-sky-400/50 ${className}`}
+    <div
       onDragOver={onDragOver}
       onDrop={onDrop}
+      style={{
+        borderRadius:'var(--radius-md)',
+        border:`1.5px dashed ${active?'var(--sky)':'rgba(14,165,233,0.2)'}`,
+        background: active ? 'rgba(14,165,233,0.06)' : 'transparent',
+        padding:14,transition:'border-color 0.2s,background 0.2s',
+      }}
     >
       {children}
-    </article>
+    </div>
   )
 }
 
-/** Section heading with accent line */
-function SectionTitle({ children }: { children: ReactNode }) {
+function ErrorBanner({ message }: { message: string }) {
   return (
-    <div className="mb-4 flex items-center gap-3">
-      <span className="h-px flex-1 bg-gradient-to-r from-emerald-500/40 to-transparent" />
-      <h2 className="font-mono text-base font-semibold tracking-widest text-emerald-400 uppercase">
-        {children}
-      </h2>
-      <span className="h-px flex-1 bg-gradient-to-l from-sky-500/30 to-transparent" />
+    <div className="slide-down" style={{
+      display:'flex',alignItems:'center',gap:8,
+      background:'var(--rose-dim)',border:'1px solid rgba(244,63,94,0.2)',
+      borderRadius:'var(--radius-sm)',padding:'8px 12px',
+      fontFamily:"'JetBrains Mono',monospace",fontSize:11,color:'var(--rose)',
+    }}>
+      <AlertTriangle size={13} strokeWidth={2}/> {message}
     </div>
   )
+}
+
+function StatPill({ icon: Icon, value, label, color = 'emerald' }: {
+  icon: any; value: number | string; label: string; color?: 'emerald'|'sky'|'amber';
+}) {
+  const cols = { emerald:['var(--emerald)','var(--emerald-dim)'], sky:['var(--sky)','var(--sky-dim)'], amber:['var(--amber)','var(--amber-dim)'] }
+  const [c, bg] = cols[color]
+  return (
+    <div style={{ display:'flex',alignItems:'center',gap:8,padding:'8px 14px',borderRadius:'var(--radius-md)',background:bg,border:`1px solid ${c}22` }}>
+      <Icon size={14} color={c} strokeWidth={2}/>
+      <span style={{ fontFamily:"'JetBrains Mono',monospace",fontSize:11,color:c,fontWeight:700 }}>{value}</span>
+      <span style={{ fontFamily:"'JetBrains Mono',monospace",fontSize:10,color:'var(--text-muted)' }}>{label}</span>
+    </div>
+  )
+}
+
+function Divider() {
+  return <div style={{ height:1,background:'var(--border-subtle)',margin:'4px 0' }}/>
 }
 
 // ─── Main App ─────────────────────────────────────────────────────────────────
@@ -261,21 +522,11 @@ function App() {
   const [aliasContext, setAliasContext] = useState('')
   const [selectedLocationId, setSelectedLocationId] = useState<number | null>(null)
 
-  const [cameras, setCameras] = useState<CameraBinding[]>(() =>
-    readStorage<CameraBinding[]>(CAMERAS_KEY, []),
-  )
-  const [predictions, setPredictions] = useState<PredictionItem[]>(() =>
-    readStorage<PredictionItem[]>(PREDICTIONS_KEY, []),
-  )
-  const [objectClasses, setObjectClasses] = useState<ObjectClassItem[]>(() =>
-    readStorage<ObjectClassItem[]>(OBJECT_CLASSES_KEY, []),
-  )
-  const [aliasGroups, setAliasGroups] = useState<AliasGroup[]>(() =>
-    readStorage<AliasGroup[]>(ALIAS_GROUPS_KEY, []),
-  )
-  const [uploadedYoloModels, setUploadedYoloModels] = useState<UploadedYoloModel[]>(() =>
-    readStorage<UploadedYoloModel[]>(YOLO_UPLOADS_KEY, []),
-  )
+  const [cameras, setCameras] = useState<CameraBinding[]>(() => readStorage<CameraBinding[]>(CAMERAS_KEY, []))
+  const [predictions, setPredictions] = useState<PredictionItem[]>(() => readStorage<PredictionItem[]>(PREDICTIONS_KEY, []))
+  const [objectClasses, setObjectClasses] = useState<ObjectClassItem[]>(() => readStorage<ObjectClassItem[]>(OBJECT_CLASSES_KEY, []))
+  const [aliasGroups, setAliasGroups] = useState<AliasGroup[]>(() => readStorage<AliasGroup[]>(ALIAS_GROUPS_KEY, []))
+  const [uploadedYoloModels, setUploadedYoloModels] = useState<UploadedYoloModel[]>(() => readStorage<UploadedYoloModel[]>(YOLO_UPLOADS_KEY, []))
 
   const { data: dashboardData, error: dashboardError } = useDashboardQuery(token)
   const createLocationMutation = useCreateLocationMutation()
@@ -283,12 +534,7 @@ function App() {
   const modules = dashboardData?.modules ?? []
   const locationCount = dashboardData?.locationCount ?? 0
   const locations = dashboardData?.locations ?? EMPTY_LOCATIONS
-  const loadError =
-    dashboardError instanceof Error
-      ? dashboardError.message
-      : dashboardError === null
-        ? ''
-        : 'Unable to load dashboard data.'
+  const loadError = dashboardError instanceof Error ? dashboardError.message : dashboardError === null ? '' : 'Unable to load dashboard data.'
 
   useEffect(() => { writeStorage(CAMERAS_KEY, cameras) }, [cameras])
   useEffect(() => { writeStorage(PREDICTIONS_KEY, predictions) }, [predictions])
@@ -297,25 +543,15 @@ function App() {
   useEffect(() => { writeStorage(YOLO_UPLOADS_KEY, uploadedYoloModels) }, [uploadedYoloModels])
 
   const effectiveSelectedLocationId = selectedLocationId ?? locations[0]?.id ?? null
-  const selectedLocation = useMemo(
-    () => locations.find((l) => l.id === effectiveSelectedLocationId) ?? null,
-    [effectiveSelectedLocationId, locations],
-  )
-  const selectedLocationCameras = useMemo(
-    () => cameras.filter((c) => c.locationId === effectiveSelectedLocationId),
-    [cameras, effectiveSelectedLocationId],
-  )
-  const groupedAliases = useMemo(
-    () =>
-      aliasGroups.reduce<Record<string, AliasGroup[]>>((acc, ag) => {
-        if (!(ag.canonicalClass in acc)) acc[ag.canonicalClass] = []
-        acc[ag.canonicalClass].push(ag)
-        return acc
-      }, {}),
-    [aliasGroups],
-  )
+  const selectedLocation = useMemo(() => locations.find((l) => l.id === effectiveSelectedLocationId) ?? null, [effectiveSelectedLocationId, locations])
+  const selectedLocationCameras = useMemo(() => cameras.filter((c) => c.locationId === effectiveSelectedLocationId), [cameras, effectiveSelectedLocationId])
+  const groupedAliases = useMemo(() => aliasGroups.reduce<Record<string, AliasGroup[]>>((acc, ag) => {
+    if (!(ag.canonicalClass in acc)) acc[ag.canonicalClass] = []
+    acc[ag.canonicalClass].push(ag)
+    return acc
+  }, {}), [aliasGroups])
 
-  // ── Handlers ────────────────────────────────────────────────────────────────
+  // ── Handlers ─────────────────────────────────────────────────────────────────
 
   const onLogin = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -339,15 +575,12 @@ function App() {
     if (!token) { setLocationFormError('Please login first.'); return }
     try {
       const cameraSpec = {
-        vendor: cameraVendor || null,
-        model: cameraModel || null,
-        resolution: cameraResolution || null,
-        fps: cameraFps === '' ? null : Number(cameraFps),
+        vendor: cameraVendor || null, model: cameraModel || null,
+        resolution: cameraResolution || null, fps: cameraFps === '' ? null : Number(cameraFps),
         fieldOfView: cameraFov || null,
       }
       const yoloMeta = {
-        modelName: modelName || null,
-        modelVersion: modelVersion || null,
+        modelName: modelName || null, modelVersion: modelVersion || null,
         confidenceThreshold: confidenceThreshold === '' ? null : Number(confidenceThreshold),
         iouThreshold: iouThreshold === '' ? null : Number(iouThreshold),
       }
@@ -355,8 +588,7 @@ function App() {
         token,
         payload: {
           locationName, descriptiveLocation,
-          cameraIdentifier: cameraIdentifier || null,
-          liveFeedUrl: liveFeedUrl || null,
+          cameraIdentifier: cameraIdentifier || null, liveFeedUrl: liveFeedUrl || null,
           cameraSpecification: Object.values(cameraSpec).every((v) => v === null) ? null : cameraSpec,
           yoloModelMetadata: Object.values(yoloMeta).every((v) => v === null) ? null : yoloMeta,
           latitude: latitude === '' ? null : Number(latitude),
@@ -380,8 +612,7 @@ function App() {
       yoloModelName: cameraYoloModelName.trim(), yoloModelVersion: cameraYoloModelVersion.trim(),
       locationId: null,
     }, ...cur])
-    setCameraName(''); setCameraFeedUrl(''); setCameraYoloModelName('')
-    setCameraYoloModelVersion(''); setCameraFormError('')
+    setCameraName(''); setCameraFeedUrl(''); setCameraYoloModelName(''); setCameraYoloModelVersion(''); setCameraFormError('')
   }
 
   const onCreatePrediction = (e: FormEvent<HTMLFormElement>) => {
@@ -389,7 +620,7 @@ function App() {
     if (predictionCameraId === '') { setPredictionFormError('Select a camera.'); return }
     if (predictionObjectClass.trim() === '') { setPredictionFormError('Object class required.'); return }
     const conf = Number(predictionConfidence)
-    if (Number.isNaN(conf) || conf < 0 || conf > 1) { setPredictionFormError('Confidence 0–1.'); return }
+    if (Number.isNaN(conf) || conf < 0 || conf > 1) { setPredictionFormError('Confidence must be between 0 and 1.'); return }
     const cam = cameras.find((c) => c.id === predictionCameraId)
     setPredictions((cur) => [{
       id: makeId(), timestamp: new Date().toISOString(),
@@ -403,17 +634,16 @@ function App() {
     e.preventDefault()
     const norm = className.trim().toLowerCase()
     if (!norm) { setClassFormError('Class name required.'); return }
-    if (objectClasses.some((c) => c.name.toLowerCase() === norm)) { setClassFormError('Already exists.'); return }
+    if (objectClasses.some((c) => c.name.toLowerCase() === norm)) { setClassFormError('Class already exists.'); return }
     setObjectClasses((cur) => [{ id: makeId(), name: className.trim() }, ...cur])
     setClassName(''); setClassFormError('')
   }
 
   const onCreateAliasGroup = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    if (!aliasName.trim() || !aliasCanonicalClass.trim()) { setAliasFormError('Alias + canonical required.'); return }
+    if (!aliasName.trim() || !aliasCanonicalClass.trim()) { setAliasFormError('Alias and canonical class are required.'); return }
     setAliasGroups((cur) => [{
-      id: makeId(), alias: aliasName.trim(),
-      canonicalClass: aliasCanonicalClass.trim(), context: aliasContext.trim(),
+      id: makeId(), alias: aliasName.trim(), canonicalClass: aliasCanonicalClass.trim(), context: aliasContext.trim(),
     }, ...cur])
     setAliasName(''); setAliasCanonicalClass(''); setAliasContext(''); setAliasFormError('')
   }
@@ -427,543 +657,661 @@ function App() {
       setUploadError(`Invalid extension. Allowed: ${ALLOWED_MODEL_EXTENSIONS.join(', ')}`)
       e.currentTarget.value = ''; return
     }
-    if (file.size > MAX_MODEL_SIZE_BYTES) {
-      setUploadError('Exceeds 100MB limit.'); e.currentTarget.value = ''; return
-    }
+    if (file.size > MAX_MODEL_SIZE_BYTES) { setUploadError('File exceeds 100MB limit.'); e.currentTarget.value = ''; return }
     setUploadedYoloModels((cur) => [{
-      id: makeId(), fileName: file.name, extension: ext,
-      sizeBytes: file.size, uploadedAt: new Date().toISOString(),
+      id: makeId(), fileName: file.name, extension: ext, sizeBytes: file.size, uploadedAt: new Date().toISOString(),
     }, ...cur])
     setUploadError(''); e.currentTarget.value = ''
   }
 
-  const onDragCamera = (e: DragEvent<HTMLElement>, cameraId: string) =>
-    e.dataTransfer.setData('text/plain', cameraId)
-
+  const onDragCamera = (e: DragEvent<HTMLElement>, cameraId: string) => e.dataTransfer.setData('text/plain', cameraId)
   const onDropCameraToLocation = (e: DragEvent<HTMLElement>, locationId: number) => {
     e.preventDefault()
     const id = e.dataTransfer.getData('text/plain')
     if (!id) return
     setCameras((cur) => cur.map((c) => c.id === id ? { ...c, locationId } : c))
   }
-
   const onDropCameraToUnassigned = (e: DragEvent<HTMLElement>) => {
     e.preventDefault()
     const id = e.dataTransfer.getData('text/plain')
     if (!id) return
     setCameras((cur) => cur.map((c) => c.id === id ? { ...c, locationId: null } : c))
   }
+  const onLogout = () => { localStorage.removeItem(TOKEN_KEY); setToken(null); setLocationFormError('') }
 
-  const onLogout = () => {
-    localStorage.removeItem(TOKEN_KEY)
-    setToken(null)
-    setLocationFormError('')
-  }
-
-  // ── Auth screen ──────────────────────────────────────────────────────────────
+  // ── Auth Screen ───────────────────────────────────────────────────────────────
 
   if (token === null) {
     return (
       <>
-        <style>{`
-          @keyframes scanline { 0%{top:-1px} 100%{top:100%} }
-          @keyframes pulse-ring { 0%,100%{opacity:.15} 50%{opacity:.35} }
-        `}</style>
-        <main className="flex min-h-screen items-center justify-center bg-[#0b0f14] px-4"
-              style={{
-                backgroundImage:
-                  'radial-gradient(circle at 0% 0%, rgba(34,197,94,.13) 0%, transparent 40%), radial-gradient(circle at 90% 10%, rgba(14,165,233,.15) 0%, transparent 35%), linear-gradient(160deg,#060a0f 0%,#0f172a 50%,#060a0f 100%)',
-              }}
-        >
-          <GlassPanel className="w-full max-w-md">
-            <ScanLine />
-            <div className="mb-6 text-center">
-              <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full border border-emerald-500/40 bg-emerald-500/10">
-                <svg className="h-6 w-6 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
-                        d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
-                </svg>
+        <style>{css}</style>
+        <main style={{
+          minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',padding:'24px 16px',
+          background:'radial-gradient(ellipse at 30% 20%,rgba(16,185,129,0.08) 0%,transparent 50%), radial-gradient(ellipse at 80% 80%,rgba(14,165,233,0.08) 0%,transparent 50%), var(--bg-base)',
+        }}>
+          {/* Grid bg */}
+          <div style={{
+            position:'fixed',inset:0,pointerEvents:'none',
+            backgroundImage:'linear-gradient(rgba(255,255,255,0.02) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.02) 1px,transparent 1px)',
+            backgroundSize:'48px 48px',
+          }}/>
+          <div className="fade-up" style={{ width:'100%',maxWidth:400,position:'relative' }}>
+            <Panel>
+              <ScanLine/>
+              {/* Logo */}
+              <div style={{ textAlign:'center',marginBottom:28 }}>
+                <div style={{
+                  display:'inline-flex',alignItems:'center',justifyContent:'center',
+                  width:52,height:52,borderRadius:14,marginBottom:14,
+                  background:'linear-gradient(135deg,rgba(16,185,129,0.15),rgba(16,185,129,0.05))',
+                  border:'1px solid rgba(16,185,129,0.3)',
+                  boxShadow:'0 0 32px rgba(16,185,129,0.15)',
+                }}>
+                  <Shield size={24} color='var(--emerald)' strokeWidth={1.5}/>
+                </div>
+                <h1 style={{ fontFamily:"'JetBrains Mono',monospace",fontSize:15,fontWeight:700,letterSpacing:'0.1em',color:'var(--text-primary)',margin:'0 0 6px' }}>
+                  GEOSPATIAL AI
+                </h1>
+                <p style={{ fontFamily:"'JetBrains Mono',monospace",fontSize:10,color:'var(--text-muted)',margin:0 }}>
+                  Secure access · Single-user portal
+                </p>
               </div>
-              <h1 className="font-mono text-xl font-bold tracking-wider text-slate-100">
-                Mini Geospatial AI Assist
-              </h1>
-              <p className="mt-1 font-mono text-xs text-slate-500">
-                Single-user access · 4+ character password
-              </p>
-            </div>
-            <form onSubmit={onLogin} className="grid gap-3">
-              <Field label="Username">
-                <input className={inputCls} value={username}
-                       onChange={(e) => setUsername(e.target.value)} required />
-              </Field>
-              <Field label="Password">
-                <input className={inputCls} value={password} type="password" minLength={4}
-                       onChange={(e) => setPassword(e.target.value)} required />
-              </Field>
-              <GreenButton type="submit" disabled={isAuthenticating}>
-                {isAuthenticating ? '[ authenticating... ]' : '[ login ]'}
-              </GreenButton>
-            </form>
-            {loginError && (
-              <p className="mt-2 font-mono text-xs text-red-400">⚠ {loginError}</p>
-            )}
-          </GlassPanel>
+
+              <form onSubmit={onLogin} style={{ display:'grid',gap:14 }}>
+                <FieldGuide label="Username" icon={Hash} hint="Your assigned system username" required>
+                  <Input
+                    value={username} onChange={(e) => setUsername(e.target.value)}
+                    placeholder="e.g. admin" required autoComplete="username"
+                  />
+                </FieldGuide>
+                <FieldGuide label="Password" icon={Shield} hint="Minimum 4 characters required" required>
+                  <Input
+                    type="password" value={password} minLength={4}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="········" required autoComplete="current-password"
+                  />
+                </FieldGuide>
+                {loginError && <ErrorBanner message={loginError}/>}
+                <Btn type="submit" disabled={isAuthenticating} icon={LogIn} fullWidth>
+                  {isAuthenticating ? 'Authenticating...' : 'Sign In'}
+                </Btn>
+              </form>
+            </Panel>
+          </div>
         </main>
       </>
     )
   }
 
-  // ── Dashboard ────────────────────────────────────────────────────────────────
+  // ── Dashboard ─────────────────────────────────────────────────────────────────
+
+  const gridAuto = (min = 220) => ({ display:'grid', gap:12, gridTemplateColumns:`repeat(auto-fill,minmax(${min}px,1fr))` })
 
   return (
     <>
-      <style>{`
-        @keyframes scanline { 0%{top:-1px} 100%{top:100%} }
-        @keyframes fadeIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:none} }
-        .fade-in { animation: fadeIn .35s ease both; }
-      `}</style>
-      <main
-        className="mx-auto grid max-w-[1400px] gap-4 px-4 py-6 md:px-6 fade-in"
-        style={{
-          backgroundAttachment: 'fixed',
-        }}
-      >
-        {/* ── Header ── */}
-        <GlassPanel className="!p-0">
-          <HeaderBeams />
-          <div className="relative flex items-center justify-between gap-3 p-5">
-            <div>
-              <h1 className="font-mono text-lg font-bold tracking-widest text-slate-100 uppercase">
-                Geospatial Security Dashboard
-              </h1>
-              <p className="mt-0.5 font-mono text-xs text-slate-500">
-                <span className="text-emerald-400">{locationCount}</span> locations ·{' '}
-                <span className="text-sky-400">{cameras.length}</span> cameras ·{' '}
-                <span className="text-amber-400">{predictions.length}</span> predictions
-              </p>
-            </div>
-            <BlueButton onClick={onLogout}>[ logout ]</BlueButton>
-          </div>
-        </GlassPanel>
+      <style>{css}</style>
+      {/* Page bg */}
+      <div style={{
+        position:'fixed',inset:0,pointerEvents:'none',zIndex:0,
+        background:'radial-gradient(ellipse at 20% 0%,rgba(16,185,129,0.06) 0%,transparent 50%),radial-gradient(ellipse at 80% 100%,rgba(14,165,233,0.06) 0%,transparent 50%),var(--bg-base)',
+      }}>
+        <div style={{
+          position:'absolute',inset:0,
+          backgroundImage:'linear-gradient(rgba(255,255,255,0.015) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.015) 1px,transparent 1px)',
+          backgroundSize:'48px 48px',
+        }}/>
+      </div>
 
-        {loadError && (
-          <div className="rounded-xl border border-red-500/30 bg-red-950/30 px-4 py-3 font-mono text-xs text-red-400">
-            ⚠ {loadError}
+      <main style={{ position:'relative',zIndex:1,maxWidth:1440,margin:'0 auto',padding:'24px 20px 48px',display:'grid',gap:16 }} className="fade-in">
+
+        {/* ── Header ── */}
+        <Panel style={{ padding:0 }}>
+          <div style={{
+            position:'absolute',inset:0,borderRadius:'inherit',
+            background:'linear-gradient(90deg,rgba(16,185,129,0.05),transparent 60%,rgba(14,165,233,0.08))',
+          }}/>
+          <ScanLine/>
+          <div style={{ position:'relative',display:'flex',alignItems:'center',justifyContent:'space-between',gap:16,padding:'16px 24px',flexWrap:'wrap' }}>
+            <div style={{ display:'flex',alignItems:'center',gap:14 }}>
+              <div style={{
+                display:'flex',alignItems:'center',justifyContent:'center',
+                width:40,height:40,borderRadius:10,
+                background:'var(--emerald-dim)',border:'1px solid rgba(16,185,129,0.25)',
+              }}>
+                <Shield size={18} color='var(--emerald)' strokeWidth={1.5}/>
+              </div>
+              <div>
+                <h1 style={{ fontFamily:"'JetBrains Mono',monospace",fontSize:13,fontWeight:700,letterSpacing:'0.12em',textTransform:'uppercase',color:'var(--text-primary)',margin:0 }}>
+                  Geospatial Security Dashboard
+                </h1>
+                <div style={{ display:'flex',alignItems:'center',gap:6,marginTop:4 }}>
+                  <LiveDot color="emerald"/><span style={{ fontFamily:"'JetBrains Mono',monospace",fontSize:9,color:'var(--text-muted)' }}>System online</span>
+                </div>
+              </div>
+            </div>
+            <div style={{ display:'flex',alignItems:'center',gap:10,flexWrap:'wrap' }}>
+              <StatPill icon={MapPin} value={locationCount} label="locations" color="emerald"/>
+              <StatPill icon={Camera} value={cameras.length} label="cameras" color="sky"/>
+              <StatPill icon={Activity} value={predictions.length} label="predictions" color="amber"/>
+              <Btn variant="ghost" icon={LogOut} onClick={onLogout} size="sm">Sign Out</Btn>
+            </div>
           </div>
-        )}
+        </Panel>
+
+        {loadError && <ErrorBanner message={loadError}/>}
 
         {/* ── Platform Modules ── */}
-        <GlassPanel>
-          <SectionTitle>Platform Modules</SectionTitle>
-          <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill,minmax(220px,1fr))' }}>
-            {modules.map((module) => (
-              <DataCard key={module.slug}>
-                <h3 className="font-mono text-sm font-semibold text-sky-400">{module.title}</h3>
-                <p className="mt-1 font-mono text-xs text-slate-500">{module.description}</p>
-              </DataCard>
-            ))}
-          </div>
-        </GlassPanel>
+        {modules.length > 0 && (
+          <Panel className="fade-up stagger-1">
+            <SectionTitle icon={LayoutGrid} badge={modules.length}>Platform Modules</SectionTitle>
+            <div style={gridAuto(200)}>
+              {modules.map((module) => (
+                <Card key={module.slug}>
+                  <div style={{ display:'flex',alignItems:'flex-start',gap:10 }}>
+                    <Cpu size={14} color='var(--sky)' strokeWidth={1.5} style={{ flexShrink:0,marginTop:2 }}/>
+                    <div>
+                      <h3 style={{ fontFamily:"'JetBrains Mono',monospace",fontSize:11,fontWeight:600,color:'var(--sky)',margin:'0 0 4px' }}>{module.title}</h3>
+                      <p style={{ fontFamily:"'Outfit',sans-serif",fontSize:12,color:'var(--text-muted)',margin:0,lineHeight:1.5 }}>{module.description}</p>
+                    </div>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          </Panel>
+        )}
 
         {/* ── Create Location ── */}
-        <GlassPanel>
-          <SectionTitle>Create Camera Placement Location</SectionTitle>
-          <form
-            onSubmit={onCreateLocation}
-            className="grid gap-3"
-            style={{ gridTemplateColumns: 'repeat(auto-fill,minmax(220px,1fr))' }}
-          >
-            <Field label="Location Name">
-              <input className={inputCls} value={locationName}
-                     onChange={(e) => setLocationName(e.target.value)} required />
-            </Field>
-            <Field label="Camera Identifier">
-              <input className={inputCls} value={cameraIdentifier}
-                     onChange={(e) => setCameraIdentifier(e.target.value)} />
-            </Field>
-            <Field label="Live Feed URL">
-              <input className={inputCls} value={liveFeedUrl} type="url"
-                     onChange={(e) => setLiveFeedUrl(e.target.value)} />
-            </Field>
-            <div className="col-span-full">
-              <Field label="Descriptive Placement">
-                <textarea className={inputCls} value={descriptiveLocation} rows={3}
-                          onChange={(e) => setDescriptiveLocation(e.target.value)} required />
-              </Field>
+        <Panel className="fade-up stagger-2">
+          <SectionTitle icon={MapPin}>Create Camera Placement Location</SectionTitle>
+
+          {/* Helper callout */}
+          <div style={{
+            display:'flex',alignItems:'flex-start',gap:10,padding:'10px 14px',borderRadius:'var(--radius-sm)',
+            background:'rgba(14,165,233,0.06)',border:'1px solid rgba(14,165,233,0.15)',marginBottom:18,
+          }}>
+            <Info size={13} color='var(--sky)' style={{ flexShrink:0,marginTop:1 }}/>
+            <p style={{ fontFamily:"'Outfit',sans-serif",fontSize:12,color:'var(--text-secondary)',margin:0,lineHeight:1.6 }}>
+              Define a physical placement point for a CCTV camera. Fields marked <span style={{ color:'var(--rose)' }}>*</span> are required.
+              Camera spec and YOLO metadata are optional but recommended for analytics.
+            </p>
+          </div>
+
+          <form onSubmit={onCreateLocation} style={{ display:'grid',gap:12,gridTemplateColumns:'repeat(auto-fill,minmax(220px,1fr))' }}>
+            {/* Core identity */}
+            <FieldGuide label="Location Name" icon={MapPin} hint="Unique name for this placement point" required>
+              <Input value={locationName} onChange={(e) => setLocationName(e.target.value)} placeholder="e.g. Gate A — North Entrance" required/>
+            </FieldGuide>
+            <FieldGuide label="Camera Identifier" icon={Hash} hint="Optional hardware serial or asset tag">
+              <Input value={cameraIdentifier} onChange={(e) => setCameraIdentifier(e.target.value)} placeholder="e.g. CAM-0042"/>
+            </FieldGuide>
+            <FieldGuide label="Live Feed URL" icon={Wifi} hint="RTSP or HTTP stream URL for this camera">
+              <Input value={liveFeedUrl} type="url" onChange={(e) => setLiveFeedUrl(e.target.value)} placeholder="rtsp://192.168.1.x:554/stream"/>
+            </FieldGuide>
+
+            {/* Descriptive placement spans full width */}
+            <div style={{ gridColumn:'1 / -1' }}>
+              <FieldGuide label="Descriptive Placement" icon={Eye} hint="Describe exactly where the camera is mounted and what it covers" required>
+                <Textarea
+                  value={descriptiveLocation} rows={3}
+                  onChange={(e) => setDescriptiveLocation(e.target.value)}
+                  placeholder="e.g. Mounted 4m high on the northeast corner of Building B facing the parking entrance. Covers 120° arc including vehicle entry lane."
+                  required
+                />
+              </FieldGuide>
             </div>
-            <Field label="Camera Vendor">
-              <input className={inputCls} value={cameraVendor}
-                     onChange={(e) => setCameraVendor(e.target.value)} />
-            </Field>
-            <Field label="Camera Model">
-              <input className={inputCls} value={cameraModel}
-                     onChange={(e) => setCameraModel(e.target.value)} />
-            </Field>
-            <Field label="Resolution">
-              <input className={inputCls} value={cameraResolution}
-                     onChange={(e) => setCameraResolution(e.target.value)} />
-            </Field>
-            <Field label="FPS">
-              <input className={inputCls} value={cameraFps} type="number" min={1} max={240}
-                     onChange={(e) => setCameraFps(e.target.value)} />
-            </Field>
-            <Field label="Field of View">
-              <input className={inputCls} value={cameraFov}
-                     onChange={(e) => setCameraFov(e.target.value)} />
-            </Field>
-            <Field label="YOLO Model Name">
-              <input className={inputCls} value={modelName}
-                     onChange={(e) => setModelName(e.target.value)} />
-            </Field>
-            <Field label="YOLO Model Version">
-              <input className={inputCls} value={modelVersion}
-                     onChange={(e) => setModelVersion(e.target.value)} />
-            </Field>
-            <Field label="Confidence Threshold">
-              <input className={inputCls} value={confidenceThreshold} type="number" min={0} max={1} step="0.01"
-                     onChange={(e) => setConfidenceThreshold(e.target.value)} />
-            </Field>
-            <Field label="IoU Threshold">
-              <input className={inputCls} value={iouThreshold} type="number" min={0} max={1} step="0.01"
-                     onChange={(e) => setIouThreshold(e.target.value)} />
-            </Field>
-            <Field label="Latitude">
-              <input className={inputCls} value={latitude} type="number" step="0.0000001" min={-90} max={90}
-                     onChange={(e) => setLatitude(e.target.value)} />
-            </Field>
-            <Field label="Longitude">
-              <input className={inputCls} value={longitude} type="number" step="0.0000001" min={-180} max={180}
-                     onChange={(e) => setLongitude(e.target.value)} />
-            </Field>
-            <div className="col-span-full">
-              <GreenButton type="submit">[ save location ]</GreenButton>
+
+            {/* Separator label */}
+            <div style={{ gridColumn:'1 / -1',display:'flex',alignItems:'center',gap:8,marginTop:4 }}>
+              <Camera size={11} color='var(--text-muted)'/>
+              <span style={{ fontFamily:"'JetBrains Mono',monospace",fontSize:9,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'0.1em' }}>Camera Hardware Spec</span>
+              <div style={{ flex:1,height:1,background:'var(--border-subtle)' }}/>
             </div>
+
+            <FieldGuide label="Camera Vendor" icon={Box} hint="Manufacturer name (e.g. Hikvision, Dahua, Axis)">
+              <Input value={cameraVendor} onChange={(e) => setCameraVendor(e.target.value)} placeholder="e.g. Hikvision"/>
+            </FieldGuide>
+            <FieldGuide label="Camera Model" icon={Settings2} hint="Exact model number from manufacturer">
+              <Input value={cameraModel} onChange={(e) => setCameraModel(e.target.value)} placeholder="e.g. DS-2CD2183G2-I"/>
+            </FieldGuide>
+            <FieldGuide label="Resolution" icon={Maximize2} hint="Width × Height in pixels">
+              <Input value={cameraResolution} onChange={(e) => setCameraResolution(e.target.value)} placeholder="e.g. 3840×2160"/>
+            </FieldGuide>
+            <FieldGuide label="Frame Rate (FPS)" icon={Zap} hint="Frames per second — between 1 and 240">
+              <Input value={cameraFps} type="number" min={1} max={240} onChange={(e) => setCameraFps(e.target.value)} placeholder="e.g. 30"/>
+            </FieldGuide>
+            <FieldGuide label="Field of View" icon={ScanIcon} hint="Horizontal angle covered by the lens">
+              <Input value={cameraFov} onChange={(e) => setCameraFov(e.target.value)} placeholder="e.g. 104°"/>
+            </FieldGuide>
+
+            {/* YOLO separator */}
+            <div style={{ gridColumn:'1 / -1',display:'flex',alignItems:'center',gap:8,marginTop:4 }}>
+              <Cpu size={11} color='var(--text-muted)'/>
+              <span style={{ fontFamily:"'JetBrains Mono',monospace",fontSize:9,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'0.1em' }}>YOLO Model Metadata</span>
+              <div style={{ flex:1,height:1,background:'var(--border-subtle)' }}/>
+            </div>
+
+            <FieldGuide label="YOLO Model Name" icon={Cpu} hint="Name of the detection model deployed at this location">
+              <Input value={modelName} onChange={(e) => setModelName(e.target.value)} placeholder="e.g. yolov8x-seg"/>
+            </FieldGuide>
+            <FieldGuide label="YOLO Model Version" icon={Tag} hint="Semantic version of the model weights">
+              <Input value={modelVersion} onChange={(e) => setModelVersion(e.target.value)} placeholder="e.g. 1.3.0"/>
+            </FieldGuide>
+            <FieldGuide label="Confidence Threshold" icon={BarChart2} hint="Min confidence score to log a detection (0.0 – 1.0)">
+              <Input value={confidenceThreshold} type="number" min={0} max={1} step="0.01" onChange={(e) => setConfidenceThreshold(e.target.value)} placeholder="e.g. 0.65"/>
+            </FieldGuide>
+            <FieldGuide label="IoU Threshold" icon={Crosshair} hint="Non-max suppression overlap threshold (0.0 – 1.0)">
+              <Input value={iouThreshold} type="number" min={0} max={1} step="0.01" onChange={(e) => setIouThreshold(e.target.value)} placeholder="e.g. 0.45"/>
+            </FieldGuide>
+
+            {/* GPS separator */}
+            <div style={{ gridColumn:'1 / -1',display:'flex',alignItems:'center',gap:8,marginTop:4 }}>
+              <Globe size={11} color='var(--text-muted)'/>
+              <span style={{ fontFamily:"'JetBrains Mono',monospace",fontSize:9,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'0.1em' }}>GPS Coordinates</span>
+              <div style={{ flex:1,height:1,background:'var(--border-subtle)' }}/>
+            </div>
+
+            <FieldGuide label="Latitude" icon={Globe} hint="WGS84 decimal degrees — range: −90 to 90">
+              <Input value={latitude} type="number" step="0.0000001" min={-90} max={90} onChange={(e) => setLatitude(e.target.value)} placeholder="e.g. 10.7202"/>
+            </FieldGuide>
+            <FieldGuide label="Longitude" icon={Globe} hint="WGS84 decimal degrees — range: −180 to 180">
+              <Input value={longitude} type="number" step="0.0000001" min={-180} max={180} onChange={(e) => setLongitude(e.target.value)} placeholder="e.g. 122.5621"/>
+            </FieldGuide>
+
+            <div style={{ gridColumn:'1 / -1',display:'flex',alignItems:'center',gap:10,marginTop:4 }}>
+              <Btn type="submit" icon={Plus}>Save Location</Btn>
+              {createLocationMutation.isSuccess && (
+                <span style={{ display:'flex',alignItems:'center',gap:5,fontFamily:"'JetBrains Mono',monospace",fontSize:10,color:'var(--emerald)' }} className="slide-down">
+                  <CheckCircle2 size={12}/> Saved successfully
+                </span>
+              )}
+            </div>
+            {locationFormError && <div style={{ gridColumn:'1 / -1' }}><ErrorBanner message={locationFormError}/></div>}
           </form>
-          {locationFormError && (
-            <p className="mt-2 font-mono text-xs text-red-400">⚠ {locationFormError}</p>
-          )}
-        </GlassPanel>
+        </Panel>
 
         {/* ── CCTV Attachment Board ── */}
-        <GlassPanel>
-          <SectionTitle>CCTV Attachment Board (Drag &amp; Drop)</SectionTitle>
-          <p className="mb-4 font-mono text-xs text-slate-500">
-            Drag a camera card into a location drop zone to attach CCTV.
-          </p>
+        <Panel className="fade-up stagger-3">
+          <SectionTitle icon={Move}>CCTV Attachment Board</SectionTitle>
 
-          <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(280px,1fr))' }}>
-            {/* Unassigned drop zone */}
-            <DropZone onDragOver={(e) => e.preventDefault()} onDrop={onDropCameraToUnassigned}>
-              <h3 className="mb-2 font-mono text-xs font-semibold tracking-widest text-slate-400 uppercase">
-                Unassigned Cameras
-              </h3>
-              <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(auto-fill,minmax(180px,1fr))' }}>
-                {cameras.filter((c) => c.locationId === null).map((camera) => (
-                  <div
-                    key={camera.id}
-                    className="cursor-grab rounded-xl border border-slate-700/60 bg-[#0b0f14]/55 p-3 transition-all hover:border-sky-500/40 hover:shadow-[0_0_8px_rgba(14,165,233,0.15)] active:cursor-grabbing"
-                    draggable
-                    onDragStart={(e) => onDragCamera(e, camera.id)}
-                  >
-                    <p className="font-mono text-sm font-semibold text-slate-200">{camera.name}</p>
-                    <p className="mt-0.5 font-mono text-xs text-slate-500">{camera.liveFeedUrl || 'No feed URL'}</p>
-                    <p className="font-mono text-xs text-slate-600">
-                      YOLO: {camera.yoloModelName || '-'} {camera.yoloModelVersion}
-                    </p>
-                  </div>
+          <div style={{
+            display:'flex',alignItems:'flex-start',gap:10,padding:'10px 14px',borderRadius:'var(--radius-sm)',
+            background:'rgba(245,158,11,0.06)',border:'1px solid rgba(245,158,11,0.15)',marginBottom:18,
+          }}>
+            <GripVertical size={13} color='var(--amber)' style={{ flexShrink:0,marginTop:1 }}/>
+            <p style={{ fontFamily:"'Outfit',sans-serif",fontSize:12,color:'var(--text-secondary)',margin:0,lineHeight:1.6 }}>
+              Drag a camera card from <strong style={{ color:'var(--text-primary)' }}>Unassigned</strong> and drop it into a location zone below.
+              Drag back to Unassigned to detach. You can also add new cameras to inventory first.
+            </p>
+          </div>
+
+          <div style={{ display:'grid',gap:12,gridTemplateColumns:'repeat(auto-fit,minmax(280px,1fr))' }}>
+            {/* Unassigned pool */}
+            <DropZoneCard onDragOver={(e) => e.preventDefault()} onDrop={onDropCameraToUnassigned}>
+              <div style={{ display:'flex',alignItems:'center',gap:8,marginBottom:10 }}>
+                <Camera size={13} color='var(--text-muted)'/>
+                <span style={{ fontFamily:"'JetBrains Mono',monospace",fontSize:10,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.1em',color:'var(--text-muted)' }}>Unassigned Cameras</span>
+                <Badge variant="default">{cameras.filter(c => c.locationId === null).length}</Badge>
+              </div>
+              <div style={{ display:'grid',gap:8,gridTemplateColumns:'repeat(auto-fill,minmax(150px,1fr))' }}>
+                {cameras.filter(c => c.locationId === null).map((camera) => (
+                  <Card key={camera.id} draggable onDragStart={(e) => onDragCamera(e as any, camera.id)}>
+                    <div style={{ display:'flex',alignItems:'flex-start',gap:6 }}>
+                      <GripVertical size={11} color='var(--text-hint)' style={{ flexShrink:0,marginTop:1 }}/>
+                      <div style={{ minWidth:0 }}>
+                        <p style={{ fontFamily:"'JetBrains Mono',monospace",fontSize:11,fontWeight:600,color:'var(--text-primary)',margin:'0 0 3px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{camera.name}</p>
+                        <p style={{ fontFamily:"'JetBrains Mono',monospace",fontSize:9,color:'var(--text-muted)',margin:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{camera.liveFeedUrl || 'No feed URL'}</p>
+                        {camera.yoloModelName && (
+                          <Badge variant="sky" style={{ marginTop:4 }}>{camera.yoloModelName}</Badge>
+                        )}
+                      </div>
+                    </div>
+                  </Card>
                 ))}
-                {cameras.every((c) => c.locationId !== null) && (
-                  <p className="font-mono text-xs text-slate-600">No unassigned cameras.</p>
+                {cameras.every(c => c.locationId !== null) && (
+                  <p style={{ fontFamily:"'JetBrains Mono',monospace",fontSize:10,color:'var(--text-hint)',padding:'8px 4px' }}>All cameras are assigned.</p>
                 )}
               </div>
-            </DropZone>
+            </DropZoneCard>
 
             {/* Add camera form */}
-            <div className="rounded-xl border border-slate-700/60 bg-[#0b0f14]/70 p-4">
-              <h3 className="mb-3 font-mono text-xs font-semibold tracking-widest text-slate-400 uppercase">
-                Add Camera Inventory
-              </h3>
-              <form className="grid gap-3" onSubmit={onCreateCamera}>
-                <Field label="Camera Name">
-                  <input className={inputCls} value={cameraName}
-                         onChange={(e) => setCameraName(e.target.value)} required />
-                </Field>
-                <Field label="Live Feed URL">
-                  <input className={inputCls} value={cameraFeedUrl} type="url"
-                         onChange={(e) => setCameraFeedUrl(e.target.value)} />
-                </Field>
-                <Field label="YOLO Model Name">
-                  <input className={inputCls} value={cameraYoloModelName}
-                         onChange={(e) => setCameraYoloModelName(e.target.value)} />
-                </Field>
-                <Field label="YOLO Model Version">
-                  <input className={inputCls} value={cameraYoloModelVersion}
-                         onChange={(e) => setCameraYoloModelVersion(e.target.value)} />
-                </Field>
-                <GreenButton type="submit">[ add camera ]</GreenButton>
+            <div style={{ background:'var(--bg-surface)',border:'1px solid var(--border-subtle)',borderRadius:'var(--radius-md)',padding:16 }}>
+              <div style={{ display:'flex',alignItems:'center',gap:8,marginBottom:14 }}>
+                <Plus size={13} color='var(--emerald)'/>
+                <span style={{ fontFamily:"'JetBrains Mono',monospace",fontSize:10,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.1em',color:'var(--text-secondary)' }}>Add Camera to Inventory</span>
+              </div>
+              <form style={{ display:'grid',gap:10 }} onSubmit={onCreateCamera}>
+                <FieldGuide label="Camera Name" icon={Camera} hint="A recognizable label for this camera unit" required>
+                  <Input value={cameraName} onChange={(e) => setCameraName(e.target.value)} placeholder="e.g. Cam-North-01" required/>
+                </FieldGuide>
+                <FieldGuide label="Live Feed URL" icon={Wifi} hint="RTSP / HTTP stream endpoint">
+                  <Input value={cameraFeedUrl} type="url" onChange={(e) => setCameraFeedUrl(e.target.value)} placeholder="rtsp://..."/>
+                </FieldGuide>
+                <FieldGuide label="YOLO Model Name" icon={Cpu} hint="Model deployed on this camera's edge device">
+                  <Input value={cameraYoloModelName} onChange={(e) => setCameraYoloModelName(e.target.value)} placeholder="e.g. yolov8n"/>
+                </FieldGuide>
+                <FieldGuide label="Model Version" icon={Tag} hint="Version tag for tracking weight files">
+                  <Input value={cameraYoloModelVersion} onChange={(e) => setCameraYoloModelVersion(e.target.value)} placeholder="e.g. 2.1.0"/>
+                </FieldGuide>
+                <Btn type="submit" icon={Plus}>Add Camera</Btn>
+                {cameraFormError && <ErrorBanner message={cameraFormError}/>}
               </form>
-              {cameraFormError && (
-                <p className="mt-2 font-mono text-xs text-red-400">⚠ {cameraFormError}</p>
-              )}
             </div>
           </div>
 
           {/* Location drop targets */}
-          <div
-            className="mt-3 grid gap-3"
-            style={{ gridTemplateColumns: 'repeat(auto-fill,minmax(220px,1fr))' }}
-          >
-            {locations.map((loc) => {
-              const count = cameras.filter((c) => c.locationId === loc.id).length
-              return (
-                <article
-                  key={loc.id}
-                  className="rounded-xl border border-dashed border-sky-500/30 bg-[#111827]/35 p-3 transition-all hover:border-sky-400/50"
-                  onDragOver={(e) => e.preventDefault()}
-                  onDrop={(e) => onDropCameraToLocation(e, loc.id)}
-                >
-                  <h3 className="font-mono text-sm font-semibold text-emerald-400">{loc.locationName}</h3>
-                  <p className="mt-0.5 font-mono text-xs text-slate-500">{loc.descriptiveLocation}</p>
-                  <p className="mt-1 font-mono text-xs text-sky-400">
-                    CCTV attached: <span className="font-bold">{count}</span>
-                  </p>
-                  <p className="font-mono text-xs text-slate-600">
-                    {loc.latitude ?? '-'}, {loc.longitude ?? '-'}
-                  </p>
-                </article>
-              )
-            })}
-          </div>
-        </GlassPanel>
+          {locations.length > 0 && (
+            <div style={{ marginTop:14 }}>
+              <p style={{ fontFamily:"'JetBrains Mono',monospace",fontSize:9,textTransform:'uppercase',letterSpacing:'0.1em',color:'var(--text-hint)',marginBottom:10 }}>
+                Drop zones — drag cameras here to attach
+              </p>
+              <div style={gridAuto(200)}>
+                {locations.map((loc) => {
+                  const count = cameras.filter(c => c.locationId === loc.id).length
+                  return (
+                    <DropZoneCard
+                      key={loc.id}
+                      onDragOver={(e) => e.preventDefault()}
+                      onDrop={(e) => onDropCameraToLocation(e as any, loc.id)}
+                    >
+                      <div style={{ display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:6,marginBottom:4 }}>
+                        <h3 style={{ fontFamily:"'JetBrains Mono',monospace",fontSize:11,fontWeight:600,color:'var(--emerald)',margin:0 }}>{loc.locationName}</h3>
+                        <Badge variant={count > 0 ? 'sky' : 'default'}>{count} cam{count !== 1 ? 's' : ''}</Badge>
+                      </div>
+                      <p style={{ fontFamily:"'Outfit',sans-serif",fontSize:11,color:'var(--text-muted)',margin:'0 0 6px',lineHeight:1.5 }}>{loc.descriptiveLocation}</p>
+                      {(loc.latitude != null || loc.longitude != null) && (
+                        <div style={{ display:'flex',alignItems:'center',gap:5 }}>
+                          <Globe size={9} color='var(--text-hint)'/>
+                          <span style={{ fontFamily:"'JetBrains Mono',monospace",fontSize:9,color:'var(--text-hint)' }}>
+                            {loc.latitude ?? '–'}, {loc.longitude ?? '–'}
+                          </span>
+                        </div>
+                      )}
+                    </DropZoneCard>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+        </Panel>
 
         {/* ── Location Viewer ── */}
-        <GlassPanel>
-          <SectionTitle>Location Viewer (CCTV + YOLO)</SectionTitle>
-          <label className="mb-3 grid gap-1.5 text-sm text-slate-300">
-            <span className="font-mono text-xs tracking-widest text-slate-400 uppercase">Select Location</span>
-            <select
-              className={inputCls}
-              value={effectiveSelectedLocationId ?? ''}
-              onChange={(e) => setSelectedLocationId(e.target.value === '' ? null : Number(e.target.value))}
-            >
-              <option value="">Select location</option>
-              {locations.map((l) => (
-                <option key={l.id} value={l.id}>{l.locationName}</option>
-              ))}
-            </select>
-          </label>
-          {selectedLocation === null ? (
-            <p className="font-mono text-xs text-slate-600">No location selected.</p>
-          ) : (
-            <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill,minmax(220px,1fr))' }}>
-              <DataCard>
-                <h3 className="font-mono text-sm font-semibold text-emerald-400">{selectedLocation.locationName}</h3>
-                <p className="mt-0.5 font-mono text-xs text-slate-500">{selectedLocation.descriptiveLocation}</p>
-                <p className="mt-1 font-mono text-xs text-slate-600">
-                  {selectedLocation.latitude ?? '-'}, {selectedLocation.longitude ?? '-'}
-                </p>
-              </DataCard>
-              {selectedLocationCameras.length === 0 ? (
-                <DataCard>
-                  <p className="font-mono text-xs text-slate-600">No CCTV attached yet.</p>
-                </DataCard>
-              ) : (
-                selectedLocationCameras.map((cam) => (
-                  <DataCard key={cam.id}>
-                    <h3 className="font-mono text-sm font-semibold text-sky-400">{cam.name}</h3>
-                    <p className="mt-0.5 font-mono text-xs text-slate-500">
-                      Feed: {cam.liveFeedUrl || 'No feed URL'}
-                    </p>
-                    <p className="font-mono text-xs text-slate-600">
-                      YOLO: {cam.yoloModelName || 'Unknown'} {cam.yoloModelVersion}
-                    </p>
-                  </DataCard>
-                ))
-              )}
-            </div>
-          )}
-        </GlassPanel>
-
-        {/* ── Predictions Module ── */}
-        <GlassPanel>
-          <SectionTitle>Predictions Module</SectionTitle>
-          <form
-            onSubmit={onCreatePrediction}
-            className="grid gap-3"
-            style={{ gridTemplateColumns: 'repeat(auto-fill,minmax(220px,1fr))' }}
-          >
-            <Field label="Camera">
-              <select className={inputCls} value={predictionCameraId}
-                      onChange={(e) => setPredictionCameraId(e.target.value)} required>
-                <option value="">Select camera</option>
-                {cameras.map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
+        <Panel className="fade-up stagger-4">
+          <SectionTitle icon={Eye}>Location Viewer</SectionTitle>
+          <div style={{ marginBottom:14 }}>
+            <FieldGuide label="Select Location" icon={MapPin} hint="Choose a location to inspect its attached cameras and YOLO config">
+              <Select
+                value={effectiveSelectedLocationId ?? ''}
+                onChange={(e) => setSelectedLocationId(e.target.value === '' ? null : Number(e.target.value))}
+              >
+                <option value="">— choose a location —</option>
+                {locations.map((l) => (
+                  <option key={l.id} value={l.id}>{l.locationName}</option>
                 ))}
-              </select>
-            </Field>
-            <Field label="Object Class">
-              <input className={inputCls} list="known-classes" value={predictionObjectClass}
-                     onChange={(e) => setPredictionObjectClass(e.target.value)} required />
-              <datalist id="known-classes">
-                {objectClasses.map((c) => <option key={c.id} value={c.name} />)}
-              </datalist>
-            </Field>
-            <Field label="Confidence">
-              <input className={inputCls} value={predictionConfidence} type="number"
-                     min={0} max={1} step="0.01" required
-                     onChange={(e) => setPredictionConfidence(e.target.value)} />
-            </Field>
-            <div className="col-span-full">
-              <GreenButton type="submit">[ add prediction ]</GreenButton>
-            </div>
-          </form>
-          {predictionFormError && (
-            <p className="mt-2 font-mono text-xs text-red-400">⚠ {predictionFormError}</p>
-          )}
-          <div
-            className="mt-4 grid gap-3"
-            style={{ gridTemplateColumns: 'repeat(auto-fill,minmax(220px,1fr))' }}
-          >
-            {predictions.map((p) => {
-              const cam = cameras.find((c) => c.id === p.cameraId)
-              const loc = locations.find((l) => l.id === p.locationId)
-              return (
-                <DataCard key={p.id}>
-                  <h3 className="font-mono text-sm font-semibold text-amber-400">{p.objectClass}</h3>
-                  <p className="mt-0.5 font-mono text-xs text-emerald-400">
-                    {(p.confidence * 100).toFixed(1)}% confidence
-                  </p>
-                  <p className="font-mono text-xs text-slate-500">Cam: {cam?.name ?? 'Unknown'}</p>
-                  <p className="font-mono text-xs text-slate-500">Loc: {loc?.locationName ?? 'Unassigned'}</p>
-                  <p className="font-mono text-xs text-slate-600">{new Date(p.timestamp).toLocaleString()}</p>
-                </DataCard>
-              )
-            })}
-            {predictions.length === 0 && (
-              <p className="font-mono text-xs text-slate-600">No predictions logged yet.</p>
-            )}
+              </Select>
+            </FieldGuide>
           </div>
-        </GlassPanel>
+          {selectedLocation === null ? (
+            <div style={{ padding:'24px',textAlign:'center' }}>
+              <MapPin size={24} color='var(--text-hint)' style={{ margin:'0 auto 8px' }}/>
+              <p style={{ fontFamily:"'JetBrains Mono',monospace",fontSize:11,color:'var(--text-hint)',margin:0 }}>No location selected.</p>
+            </div>
+          ) : (
+            <div style={gridAuto()}>
+              <Card style={{ borderColor:'rgba(16,185,129,0.2)' }}>
+                <div style={{ display:'flex',alignItems:'center',gap:6,marginBottom:8 }}>
+                  <MapPin size={13} color='var(--emerald)'/><h3 style={{ fontFamily:"'JetBrains Mono',monospace",fontSize:11,fontWeight:700,color:'var(--emerald)',margin:0 }}>{selectedLocation.locationName}</h3>
+                </div>
+                <p style={{ fontFamily:"'Outfit',sans-serif",fontSize:12,color:'var(--text-secondary)',margin:'0 0 8px',lineHeight:1.5 }}>{selectedLocation.descriptiveLocation}</p>
+                {(selectedLocation.latitude != null || selectedLocation.longitude != null) && (
+                  <div style={{ display:'flex',alignItems:'center',gap:5 }}>
+                    <Globe size={10} color='var(--text-muted)'/><span style={{ fontFamily:"'JetBrains Mono',monospace",fontSize:10,color:'var(--text-muted)' }}>{selectedLocation.latitude ?? '–'}, {selectedLocation.longitude ?? '–'}</span>
+                  </div>
+                )}
+              </Card>
+              {selectedLocationCameras.length === 0 ? (
+                <Card>
+                  <div style={{ textAlign:'center',padding:'12px 0' }}>
+                    <Camera size={20} color='var(--text-hint)' style={{ margin:'0 auto 8px' }}/>
+                    <p style={{ fontFamily:"'JetBrains Mono',monospace",fontSize:10,color:'var(--text-hint)',margin:0 }}>No CCTV attached yet.</p>
+                  </div>
+                </Card>
+              ) : selectedLocationCameras.map((cam) => (
+                <Card key={cam.id}>
+                  <div style={{ display:'flex',alignItems:'center',gap:6,marginBottom:6 }}>
+                    <LiveDot color="sky"/>
+                    <h3 style={{ fontFamily:"'JetBrains Mono',monospace",fontSize:11,fontWeight:600,color:'var(--sky)',margin:0 }}>{cam.name}</h3>
+                  </div>
+                  <p style={{ fontFamily:"'JetBrains Mono',monospace",fontSize:10,color:'var(--text-muted)',margin:'0 0 4px',display:'flex',alignItems:'center',gap:4 }}>
+                    <Wifi size={9}/> {cam.liveFeedUrl || 'No feed URL'}
+                  </p>
+                  {cam.yoloModelName && (
+                    <div style={{ display:'flex',gap:4,marginTop:6,flexWrap:'wrap' }}>
+                      <Badge variant="emerald">{cam.yoloModelName}</Badge>
+                      {cam.yoloModelVersion && <Badge variant="default">v{cam.yoloModelVersion}</Badge>}
+                    </div>
+                  )}
+                </Card>
+              ))}
+            </div>
+          )}
+        </Panel>
+
+        {/* ── Predictions ── */}
+        <Panel className="fade-up stagger-5">
+          <SectionTitle icon={Activity} badge={predictions.length}>Predictions Module</SectionTitle>
+
+          <div style={{
+            display:'flex',alignItems:'flex-start',gap:10,padding:'10px 14px',borderRadius:'var(--radius-sm)',
+            background:'rgba(16,185,129,0.05)',border:'1px solid rgba(16,185,129,0.12)',marginBottom:18,
+          }}>
+            <Activity size={13} color='var(--emerald)' style={{ flexShrink:0,marginTop:1 }}/>
+            <p style={{ fontFamily:"'Outfit',sans-serif",fontSize:12,color:'var(--text-secondary)',margin:0,lineHeight:1.6 }}>
+              Log a detection event from any camera. Select a camera, enter the detected object class (or pick from saved classes), and set the model's confidence score.
+            </p>
+          </div>
+
+          <form onSubmit={onCreatePrediction} style={{ display:'grid',gap:12,gridTemplateColumns:'repeat(auto-fill,minmax(220px,1fr))' }}>
+            <FieldGuide label="Camera Source" icon={Camera} hint="Which camera generated this detection" required>
+              <Select value={predictionCameraId} onChange={(e) => setPredictionCameraId(e.target.value)} required>
+                <option value="">— select camera —</option>
+                {cameras.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </Select>
+            </FieldGuide>
+            <FieldGuide label="Object Class" icon={Tag} hint="Type of object detected — use saved classes for consistency" required>
+              <Input list="known-classes" value={predictionObjectClass} onChange={(e) => setPredictionObjectClass(e.target.value)} placeholder="e.g. person, vehicle, backpack" required/>
+              <datalist id="known-classes">{objectClasses.map((c) => <option key={c.id} value={c.name}/>)}</datalist>
+            </FieldGuide>
+            <FieldGuide label="Confidence Score" icon={BarChart2} hint="Model certainty — decimal between 0.00 and 1.00" required>
+              <Input value={predictionConfidence} type="number" min={0} max={1} step="0.01" required onChange={(e) => setPredictionConfidence(e.target.value)} placeholder="e.g. 0.87"/>
+            </FieldGuide>
+            <div style={{ gridColumn:'1 / -1',display:'flex',alignItems:'center',gap:10 }}>
+              <Btn type="submit" icon={Plus}>Log Prediction</Btn>
+            </div>
+            {predictionFormError && <div style={{ gridColumn:'1 / -1' }}><ErrorBanner message={predictionFormError}/></div>}
+          </form>
+
+          <div style={{ height:1,background:'var(--border-subtle)',margin:'18px 0'}}/>
+
+          {predictions.length === 0 ? (
+            <p style={{ fontFamily:"'JetBrains Mono',monospace",fontSize:10,color:'var(--text-hint)',textAlign:'center',padding:'16px 0' }}>No predictions logged yet.</p>
+          ) : (
+            <div style={gridAuto()}>
+              {predictions.map((p) => {
+                const cam = cameras.find((c) => c.id === p.cameraId)
+                const loc = locations.find((l) => l.id === p.locationId)
+                const confPct = (p.confidence * 100).toFixed(1)
+                const confColor = p.confidence >= 0.8 ? 'emerald' : p.confidence >= 0.5 ? 'amber' : 'rose'
+                return (
+                  <Card key={p.id}>
+                    <div style={{ display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:6,marginBottom:8 }}>
+                      <h3 style={{ fontFamily:"'JetBrains Mono',monospace",fontSize:12,fontWeight:700,color:'var(--amber)',margin:0 }}>{p.objectClass}</h3>
+                      <Badge variant={confColor}>{confPct}%</Badge>
+                    </div>
+                    <div style={{ display:'grid',gap:4 }}>
+                      <div style={{ display:'flex',alignItems:'center',gap:5 }}>
+                        <Camera size={9} color='var(--text-hint)'/>
+                        <span style={{ fontFamily:"'JetBrains Mono',monospace",fontSize:10,color:'var(--text-secondary)' }}>{cam?.name ?? 'Unknown camera'}</span>
+                      </div>
+                      <div style={{ display:'flex',alignItems:'center',gap:5 }}>
+                        <MapPin size={9} color='var(--text-hint)'/>
+                        <span style={{ fontFamily:"'JetBrains Mono',monospace",fontSize:10,color:'var(--text-secondary)' }}>{loc?.locationName ?? 'Unassigned'}</span>
+                      </div>
+                      <div style={{ display:'flex',alignItems:'center',gap:5 }}>
+                        <Clock size={9} color='var(--text-hint)'/>
+                        <span style={{ fontFamily:"'JetBrains Mono',monospace",fontSize:9,color:'var(--text-muted)' }}>{new Date(p.timestamp).toLocaleString()}</span>
+                      </div>
+                    </div>
+                    {/* Confidence bar */}
+                    <div style={{ marginTop:10,height:3,borderRadius:99,background:'var(--border-subtle)',overflow:'hidden' }}>
+                      <div style={{ height:'100%',width:`${p.confidence*100}%`,borderRadius:99,background:p.confidence>=0.8?'var(--emerald)':p.confidence>=0.5?'var(--amber)':'var(--rose)',transition:'width 0.4s ease' }}/>
+                    </div>
+                  </Card>
+                )
+              })}
+            </div>
+          )}
+        </Panel>
 
         {/* ── Object Classes + Alias Grouping ── */}
-        <GlassPanel>
-          <SectionTitle>Object Classes + Alias Grouping</SectionTitle>
-          <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(280px,1fr))' }}>
+        <Panel>
+          <SectionTitle icon={Layers}>Object Classes & Alias Groups</SectionTitle>
+          <div style={{ display:'grid',gap:16,gridTemplateColumns:'repeat(auto-fit,minmax(280px,1fr))' }}>
+
             {/* Object Classes */}
-            <div className="rounded-xl border border-slate-700/60 bg-[#0b0f14]/70 p-4">
-              <h3 className="mb-3 font-mono text-xs font-semibold tracking-widest text-slate-400 uppercase">
-                Object Classes
-              </h3>
-              <form className="grid gap-3" onSubmit={onCreateObjectClass}>
-                <Field label="Class Name">
-                  <input className={inputCls} value={className}
-                         onChange={(e) => setClassName(e.target.value)} required />
-                </Field>
-                <GreenButton type="submit">[ add class ]</GreenButton>
-              </form>
-              {classFormError && (
-                <p className="mt-2 font-mono text-xs text-red-400">⚠ {classFormError}</p>
-              )}
-              <div className="mt-3 flex flex-wrap gap-2">
-                {objectClasses.map((c) => (
-                  <span
-                    key={c.id}
-                    className="rounded-full border border-sky-500/30 bg-sky-500/10 px-2.5 py-1 font-mono text-xs text-sky-400"
-                  >
-                    {c.name}
-                  </span>
-                ))}
+            <div style={{ background:'var(--bg-surface)',border:'1px solid var(--border-subtle)',borderRadius:'var(--radius-md)',padding:16 }}>
+              <div style={{ display:'flex',alignItems:'center',gap:8,marginBottom:14 }}>
+                <Tag size={13} color='var(--sky)'/>
+                <span style={{ fontFamily:"'JetBrains Mono',monospace",fontSize:10,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.1em',color:'var(--text-secondary)' }}>Object Classes</span>
+                <Badge variant="sky">{objectClasses.length}</Badge>
               </div>
+              <form style={{ display:'grid',gap:10 }} onSubmit={onCreateObjectClass}>
+                <FieldGuide label="Class Name" icon={Tag} hint="Canonical label used across all predictions (e.g. 'person')" required>
+                  <Input value={className} onChange={(e) => setClassName(e.target.value)} placeholder="e.g. person, vehicle, bag" required/>
+                </FieldGuide>
+                <Btn type="submit" icon={Plus}>Add Class</Btn>
+                {classFormError && <ErrorBanner message={classFormError}/>}
+              </form>
+              {objectClasses.length > 0 && (
+                <div style={{ marginTop:14,display:'flex',flexWrap:'wrap',gap:6 }}>
+                  {objectClasses.map((c) => <Badge key={c.id} variant="sky">{c.name}</Badge>)}
+                </div>
+              )}
             </div>
 
             {/* Alias Groups */}
-            <div className="rounded-xl border border-slate-700/60 bg-[#0b0f14]/70 p-4">
-              <h3 className="mb-3 font-mono text-xs font-semibold tracking-widest text-slate-400 uppercase">
-                Alias Groups
-              </h3>
-              <form className="grid gap-3" onSubmit={onCreateAliasGroup}>
-                <Field label="Alias">
-                  <input className={inputCls} value={aliasName}
-                         onChange={(e) => setAliasName(e.target.value)} required />
-                </Field>
-                <Field label="Canonical Class">
-                  <input className={inputCls} list="canonical-classes" value={aliasCanonicalClass}
-                         onChange={(e) => setAliasCanonicalClass(e.target.value)} required />
-                  <datalist id="canonical-classes">
-                    {objectClasses.map((c) => <option key={c.id} value={c.name} />)}
-                  </datalist>
-                </Field>
-                <Field label="Context">
-                  <input className={inputCls} value={aliasContext} placeholder="e.g. perimeter zone"
-                         onChange={(e) => setAliasContext(e.target.value)} />
-                </Field>
-                <GreenButton type="submit">[ add alias group ]</GreenButton>
-              </form>
-              {aliasFormError && (
-                <p className="mt-2 font-mono text-xs text-red-400">⚠ {aliasFormError}</p>
-              )}
-              <div className="mt-3 grid gap-2">
-                {Object.entries(groupedAliases).map(([canon, aliases]) => (
-                  <DataCard key={canon}>
-                    <h4 className="font-mono text-xs font-bold text-emerald-400">{canon}</h4>
-                    <ul className="mt-1 list-disc pl-4">
-                      {aliases.map((a) => (
-                        <li key={a.id} className="font-mono text-xs text-slate-500">
-                          {a.alias}{a.context ? ` (${a.context})` : ''}
-                        </li>
-                      ))}
-                    </ul>
-                  </DataCard>
-                ))}
-                {aliasGroups.length === 0 && (
-                  <p className="font-mono text-xs text-slate-600">No alias groups yet.</p>
-                )}
+            <div style={{ background:'var(--bg-surface)',border:'1px solid var(--border-subtle)',borderRadius:'var(--radius-md)',padding:16 }}>
+              <div style={{ display:'flex',alignItems:'center',gap:8,marginBottom:14 }}>
+                <Link2 size={13} color='var(--emerald)'/>
+                <span style={{ fontFamily:"'JetBrains Mono',monospace",fontSize:10,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.1em',color:'var(--text-secondary)' }}>Alias Groups</span>
+                <Badge variant="emerald">{aliasGroups.length}</Badge>
               </div>
+              <div style={{
+                padding:'8px 12px',borderRadius:'var(--radius-sm)',
+                background:'rgba(16,185,129,0.05)',border:'1px solid rgba(16,185,129,0.12)',marginBottom:12,
+              }}>
+                <p style={{ fontFamily:"'Outfit',sans-serif",fontSize:11,color:'var(--text-secondary)',margin:0,lineHeight:1.5 }}>
+                  Map alternate terms (aliases) to a canonical class. Useful when different models output different label names for the same object.
+                </p>
+              </div>
+              <form style={{ display:'grid',gap:10 }} onSubmit={onCreateAliasGroup}>
+                <FieldGuide label="Alias" icon={Tag} hint="The alternate label name (as output by the model)" required>
+                  <Input value={aliasName} onChange={(e) => setAliasName(e.target.value)} placeholder="e.g. pedestrian, human, man" required/>
+                </FieldGuide>
+                <FieldGuide label="Canonical Class" icon={CheckCircle2} hint="The standardised class this alias maps to" required>
+                  <Input list="canonical-classes" value={aliasCanonicalClass} onChange={(e) => setAliasCanonicalClass(e.target.value)} placeholder="e.g. person" required/>
+                  <datalist id="canonical-classes">{objectClasses.map((c) => <option key={c.id} value={c.name}/>)}</datalist>
+                </FieldGuide>
+                <FieldGuide label="Context" icon={Info} hint="Optional scope where this alias applies">
+                  <Input value={aliasContext} onChange={(e) => setAliasContext(e.target.value)} placeholder="e.g. perimeter zone, parking lot"/>
+                </FieldGuide>
+                <Btn type="submit" icon={Plus}>Add Alias Group</Btn>
+                {aliasFormError && <ErrorBanner message={aliasFormError}/>}
+              </form>
+              {Object.entries(groupedAliases).length > 0 && (
+                <div style={{ marginTop:14,display:'grid',gap:8 }}>
+                  {Object.entries(groupedAliases).map(([canon, aliases]) => (
+                    <Card key={canon}>
+                      <div style={{ display:'flex',alignItems:'center',gap:6,marginBottom:6 }}>
+                        <CheckCircle2 size={10} color='var(--emerald)'/>
+                        <span style={{ fontFamily:"'JetBrains Mono',monospace",fontSize:11,fontWeight:700,color:'var(--emerald)' }}>{canon}</span>
+                      </div>
+                      <div style={{ display:'flex',flexWrap:'wrap',gap:4 }}>
+                        {aliases.map((a) => (
+                          <span key={a.id} style={{
+                            fontFamily:"'JetBrains Mono',monospace",fontSize:9,color:'var(--text-secondary)',
+                            background:'rgba(255,255,255,0.04)',border:'1px solid var(--border-subtle)',borderRadius:4,padding:'2px 6px',
+                          }}>
+                            {a.alias}{a.context ? ` · ${a.context}` : ''}
+                          </span>
+                        ))}
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
-        </GlassPanel>
+        </Panel>
 
         {/* ── YOLO Model Uploads ── */}
-        <GlassPanel>
-          <SectionTitle>YOLO Model Uploads</SectionTitle>
-          <p className="mb-3 font-mono text-xs text-slate-500">
-            Allowed: {ALLOWED_MODEL_EXTENSIONS.join(', ')} · Max 100MB
-          </p>
-          <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-dashed border-sky-500/40 bg-sky-500/5 px-4 py-3 font-mono text-xs text-sky-400 transition-all hover:border-sky-400/70 hover:bg-sky-500/10">
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
-                    d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
-            </svg>
-            Upload YOLO Model
-            <input
-              type="file"
-              accept={ALLOWED_MODEL_EXTENSIONS.join(',')}
-              onInput={onAttachUpload}
-              className="hidden"
-            />
-          </label>
-          {uploadError && (
-            <p className="mt-2 font-mono text-xs text-red-400">⚠ {uploadError}</p>
-          )}
-          <div
-            className="mt-4 grid gap-3"
-            style={{ gridTemplateColumns: 'repeat(auto-fill,minmax(220px,1fr))' }}
-          >
-            {uploadedYoloModels.map((u) => (
-              <DataCard key={u.id}>
-                <h3 className="font-mono text-sm font-semibold text-slate-200">{u.fileName}</h3>
-                <p className="mt-0.5 font-mono text-xs text-slate-500">Ext: {u.extension}</p>
-                <p className="font-mono text-xs text-slate-500">
-                  {(u.sizeBytes / (1024 * 1024)).toFixed(2)} MB
-                </p>
-                <p className="font-mono text-xs text-slate-600">{new Date(u.uploadedAt).toLocaleString()}</p>
-              </DataCard>
-            ))}
-            {uploadedYoloModels.length === 0 && (
-              <p className="font-mono text-xs text-slate-600">No YOLO models uploaded yet.</p>
-            )}
+        <Panel>
+          <SectionTitle icon={Database} badge={uploadedYoloModels.length}>YOLO Model Uploads</SectionTitle>
+
+          <div style={{
+            display:'flex',alignItems:'flex-start',gap:10,padding:'10px 14px',borderRadius:'var(--radius-sm)',
+            background:'rgba(14,165,233,0.05)',border:'1px solid rgba(14,165,233,0.12)',marginBottom:16,
+          }}>
+            <FileCode2 size={13} color='var(--sky)' style={{ flexShrink:0,marginTop:1 }}/>
+            <p style={{ fontFamily:"'Outfit',sans-serif",fontSize:12,color:'var(--text-secondary)',margin:0,lineHeight:1.6 }}>
+              Upload model weight files for deployment. Supported formats: <strong style={{ color:'var(--text-primary)',fontFamily:"'JetBrains Mono',monospace",fontSize:11 }}>{ALLOWED_MODEL_EXTENSIONS.join('  ')}</strong> · Max size: <strong style={{ color:'var(--text-primary)' }}>100 MB</strong>
+            </p>
           </div>
-        </GlassPanel>
+
+          <label style={{
+            display:'inline-flex',alignItems:'center',gap:10,cursor:'pointer',
+            padding:'12px 20px',borderRadius:'var(--radius-md)',
+            border:'1.5px dashed rgba(14,165,233,0.3)',background:'rgba(14,165,233,0.04)',
+            fontFamily:"'JetBrains Mono',monospace",fontSize:11,color:'var(--sky)',
+            transition:'border-color 0.15s,background 0.15s',
+          }}
+                 onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor='rgba(14,165,233,0.6)'; (e.currentTarget as HTMLElement).style.background='rgba(14,165,233,0.08)' }}
+                 onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor='rgba(14,165,233,0.3)'; (e.currentTarget as HTMLElement).style.background='rgba(14,165,233,0.04)' }}
+          >
+            <Upload size={15} strokeWidth={1.5}/>
+            <span>Choose model file to upload</span>
+            <input type="file" accept={ALLOWED_MODEL_EXTENSIONS.join(',')} onInput={onAttachUpload} style={{ display:'none' }}/>
+          </label>
+
+          {uploadError && <div style={{ marginTop:10 }}><ErrorBanner message={uploadError}/></div>}
+
+          {uploadedYoloModels.length > 0 && (
+            <div style={{ ...gridAuto(),marginTop:16 }}>
+              {uploadedYoloModels.map((u) => (
+                <Card key={u.id}>
+                  <div style={{ display:'flex',alignItems:'flex-start',gap:8 }}>
+                    <FileCode2 size={14} color='var(--sky)' style={{ flexShrink:0,marginTop:1 }}/>
+                    <div>
+                      <h3 style={{ fontFamily:"'JetBrains Mono',monospace",fontSize:11,fontWeight:600,color:'var(--text-primary)',margin:'0 0 6px',wordBreak:'break-all' }}>{u.fileName}</h3>
+                      <div style={{ display:'flex',flexWrap:'wrap',gap:4 }}>
+                        <Badge variant="sky">{u.extension}</Badge>
+                        <Badge variant="default">{(u.sizeBytes / (1024 * 1024)).toFixed(2)} MB</Badge>
+                      </div>
+                      <div style={{ display:'flex',alignItems:'center',gap:5,marginTop:8 }}>
+                        <Clock size={9} color='var(--text-hint)'/>
+                        <span style={{ fontFamily:"'JetBrains Mono',monospace",fontSize:9,color:'var(--text-hint)' }}>{new Date(u.uploadedAt).toLocaleString()}</span>
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          )}
+
+          {uploadedYoloModels.length === 0 && (
+            <p style={{ fontFamily:"'JetBrains Mono',monospace",fontSize:10,color:'var(--text-hint)',textAlign:'center',padding:'16px 0',marginTop:8 }}>No model files uploaded yet.</p>
+          )}
+        </Panel>
+
       </main>
     </>
   )
