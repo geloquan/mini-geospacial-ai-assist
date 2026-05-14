@@ -2,20 +2,35 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+  Design System Tokens — Facility Security AI
+  ─────────────────────────────────────────────
+  secure-green  : #22C55E  — success, active, safe zones
+  alert-orange  : #F59E0B  — warnings, motion, live alerts
+  ai-blue       : #0EA5E9  — AI, analytics, camera systems
+  trust-navy    : #0F172A  — nav, sidebar, containers
+  charcoal      : #0B0F14  — global background
+  dark          : #111827  — cards, panels
+  dark-gray     : #1F2937  — elevated cards, modals
+  medium-gray   : #334155  — borders, dividers
+  off-white     : #F1F5F9  — primary text
+  muted-gray    : #94A3B8  — secondary text / labels
+*/
+
 @layer base {
   body {
-    @apply m-0 min-h-screen bg-slate-950 text-slate-100 antialiased;
-    background-image: radial-gradient(circle at 0% 0%, rgba(59, 130, 246, 0.22), transparent 38%),
-      radial-gradient(circle at 90% 10%, rgba(168, 85, 247, 0.2), transparent 32%),
-      linear-gradient(160deg, #020617 0%, #0f172a 40%, #020617 100%);
-    font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    @apply m-0 min-h-screen antialiased;
+    background-color: #0B0F14;
+    /* Command-center depth: security-green anchor + ai-blue sweep */
+    background-image:
+      radial-gradient(circle at 0% 0%,   rgba(34, 197,  94, 0.14), transparent 38%),
+      radial-gradient(circle at 90% 10%, rgba(14, 165, 233, 0.16), transparent 32%),
+      linear-gradient(160deg, #060a0f 0%, #0F172A 45%, #060a0f 100%);
+    color: #F1F5F9;
+    font-family: 'JetBrains Mono', 'IBM Plex Mono', 'Fira Code', monospace;
   }
 
-  h1,
-  h2,
-  h3,
-  h4,
-  p {
+  h1, h2, h3, h4, p {
     @apply m-0;
   }
 }

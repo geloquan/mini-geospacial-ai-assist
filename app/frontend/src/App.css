@@ -1,3 +1,6 @@
+
+/* ── Layout shells ─────────────────────────────────────────────── */
+
 .app-shell {
   @apply mx-auto grid max-w-[1400px] gap-4 px-4 py-6 md:px-6;
 }
@@ -6,13 +9,23 @@
   @apply min-h-screen place-content-center;
 }
 
+/* ── Panels / Cards ────────────────────────────────────────────── */
+
 .panel {
-  @apply relative overflow-hidden rounded-2xl border border-slate-700/70 bg-slate-900/70 p-5 shadow-2xl backdrop-blur-xl;
+  @apply relative overflow-hidden rounded-2xl p-5 shadow-2xl backdrop-blur-xl;
+  background-color: #111827;
+  border: 1px solid #334155;
+  box-shadow:
+    0 0 0 1px rgba(34, 197, 94, 0.06),
+    0 8px 32px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
+/* Secure-green top sheen — signals active, trusted system */
 .panel::before {
   content: '';
-  @apply pointer-events-none absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-blue-400/10 to-transparent;
+  @apply pointer-events-none absolute inset-x-0 top-0 h-20;
+  background: linear-gradient(to bottom, rgba(34, 197, 94, 0.08), transparent);
 }
 
 .auth-card {
@@ -20,12 +33,20 @@
 }
 
 .sub-panel {
-  @apply rounded-xl border border-slate-700/80 bg-slate-950/60 p-4;
+  @apply rounded-xl p-4;
+  background-color: rgba(11, 15, 20, 0.7);
+  border: 1px solid rgba(51, 65, 85, 0.8);
 }
 
+/* ── App header ────────────────────────────────────────────────── */
+
 .app-header {
-  @apply flex items-center justify-between gap-3 border-blue-500/30 bg-gradient-to-r from-slate-900/85 via-slate-900/70 to-blue-900/40;
+  @apply flex items-center justify-between gap-3;
+  background: linear-gradient(90deg, rgba(15, 23, 42, 0.9) 0%, rgba(15, 23, 42, 0.75) 60%, rgba(14, 165, 233, 0.12) 100%);
+  border-bottom: 1px solid rgba(14, 165, 233, 0.2);
 }
+
+/* ── Grid layouts ──────────────────────────────────────────────── */
 
 .module-grid,
 .location-grid {
@@ -38,14 +59,21 @@
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
 }
 
+/* ── Module / Location / Drop-zone cards ──────────────────────── */
+
 .module-card,
 .location-card,
 .drop-zone {
-  @apply rounded-xl border border-slate-700/70 bg-slate-950/50 p-3 text-left shadow-sm shadow-slate-950/50;
+  @apply rounded-xl p-3 text-left;
+  background-color: rgba(11, 15, 20, 0.55);
+  border: 1px solid rgba(51, 65, 85, 0.7);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
 }
 
 .drop-zone {
-  @apply border-dashed bg-slate-900/35;
+  background-color: rgba(17, 24, 39, 0.35);
+  border-style: dashed;
+  border-color: rgba(14, 165, 233, 0.3);
 }
 
 .drop-grid {
@@ -53,12 +81,20 @@
 }
 
 .draggable-card {
-  @apply cursor-grab transition hover:border-blue-400/50 hover:bg-slate-900/80;
+  @apply cursor-grab transition-all duration-150;
+}
+
+.draggable-card:hover {
+  background-color: rgba(17, 24, 39, 0.85);
+  border-color: rgba(14, 165, 233, 0.45); /* ai-blue on hover */
+  box-shadow: 0 0 0 1px rgba(14, 165, 233, 0.2);
 }
 
 .draggable-card:active {
   @apply cursor-grabbing;
 }
+
+/* ── Forms ─────────────────────────────────────────────────────── */
 
 .grid-form {
   @apply grid gap-3;
@@ -70,7 +106,8 @@
 
 .grid-form label,
 .compact-label {
-  @apply grid gap-1.5 text-sm text-slate-200;
+  @apply grid gap-1.5 text-sm;
+  color: #F1F5F9;
 }
 
 .grid-form input,
@@ -78,32 +115,93 @@
 .grid-form select,
 .compact-label select,
 input[type='file'] {
-  @apply w-full rounded-lg border border-slate-700/90 bg-slate-950/60 px-2.5 py-2 text-slate-100 outline-none ring-0 transition focus:border-blue-500/80 focus:shadow-[0_0_0_3px_rgba(59,130,246,0.25)];
+  @apply w-full rounded-lg px-2.5 py-2 outline-none transition;
   box-sizing: border-box;
   font: inherit;
+  color: #F1F5F9;
+  background-color: rgba(11, 15, 20, 0.65);
+  border: 1px solid rgba(51, 65, 85, 0.9);
 }
 
+.grid-form input:focus,
+.grid-form textarea:focus,
+.grid-form select:focus,
+.compact-label select:focus {
+  /* ai-blue focus ring — signals system interaction */
+  border-color: rgba(14, 165, 233, 0.75);
+  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.2);
+}
+
+/* ── Buttons ───────────────────────────────────────────────────── */
+
+/* Primary action — secure-green: "confirm / proceed / safe" */
 .grid-form button,
 .app-header button {
-  @apply cursor-pointer rounded-lg border border-blue-500/60 bg-gradient-to-r from-blue-600 to-violet-600 px-3.5 py-2 font-medium text-white transition hover:from-blue-500 hover:to-violet-500;
+  @apply cursor-pointer rounded-lg px-3.5 py-2 font-medium text-white transition;
   font: inherit;
+  background: linear-gradient(135deg, #16A34A, #22C55E);
+  border: 1px solid rgba(34, 197, 94, 0.5);
+}
+
+.grid-form button:hover,
+.app-header button:hover {
+  background: linear-gradient(135deg, #22C55E, #4ADE80);
+  border-color: rgba(34, 197, 94, 0.8);
+  box-shadow: 0 0 12px rgba(34, 197, 94, 0.3);
 }
 
 .grid-form button:disabled {
-  @apply cursor-not-allowed opacity-65;
+  @apply cursor-not-allowed opacity-50;
+  box-shadow: none;
 }
+
+/* AI action button — use on analytics / detection triggers */
+.btn-ai {
+  @apply cursor-pointer rounded-lg px-3.5 py-2 font-medium text-white transition;
+  font: inherit;
+  background: linear-gradient(135deg, #0284C7, #0EA5E9);
+  border: 1px solid rgba(14, 165, 233, 0.5);
+}
+
+.btn-ai:hover {
+  background: linear-gradient(135deg, #0EA5E9, #38BDF8);
+  box-shadow: 0 0 12px rgba(14, 165, 233, 0.3);
+}
+
+/* Warning / alert action — orange: "flag / escalate / alert" */
+.btn-warning {
+  @apply cursor-pointer rounded-lg px-3.5 py-2 font-medium text-white transition;
+  font: inherit;
+  background: linear-gradient(135deg, #F97316, #F59E0B);
+  border: 1px solid rgba(245, 158, 11, 0.5);
+}
+
+.btn-warning:hover {
+  background: linear-gradient(135deg, #F59E0B, #FCD34D);
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.3);
+}
+
+/* ── Utility ───────────────────────────────────────────────────── */
 
 .full-width {
   grid-column: 1 / -1;
 }
 
+/* ── Pill / tag lists ──────────────────────────────────────────── */
+
 .pill-list {
   @apply m-0 mt-3 flex list-none flex-wrap gap-2 p-0;
 }
 
+/* Default pill — ai-blue tint for analytics / detection tags */
 .pill-list li {
-  @apply rounded-full border border-violet-400/35 bg-violet-500/15 px-2.5 py-1 text-xs;
+  @apply rounded-full px-2.5 py-1 text-xs;
+  background-color: rgba(14, 165, 233, 0.12);
+  border: 1px solid rgba(14, 165, 233, 0.3);
+  color: #38BDF8;
 }
+
+/* ── Alias groups ──────────────────────────────────────────────── */
 
 .alias-groups {
   @apply mt-3 grid gap-2;
@@ -113,14 +211,25 @@ input[type='file'] {
   @apply mb-0 mt-2 pl-[18px];
 }
 
+/* ── Typography helpers ────────────────────────────────────────── */
+
 .bold-text {
   @apply font-semibold;
 }
 
 .hint-text {
-  @apply mt-1 text-slate-300;
+  @apply mt-1;
+  color: #94A3B8;
 }
 
 .error-text {
-  @apply mt-2 text-rose-400;
+  @apply mt-2;
+  color: #EF4444; /* semantic danger */
 }
+
+/* ── Semantic status helpers ───────────────────────────────────── */
+
+.status-secure   { color: #22C55E; } /* green  — safe / online */
+.status-alert    { color: #F59E0B; } /* orange — warning / motion */
+.status-ai       { color: #0EA5E9; } /* blue   — AI processing */
+.status-danger   { color: #EF4444; } /* red    — breach / critical */
