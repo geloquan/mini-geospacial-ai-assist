@@ -1,49 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { DragEvent, FormEvent } from 'react'
 import './App.css'
-
-type LoginResponse = {
-  data: {
-    token: string
-    user: {
-      id: number
-      username: string
-      email: string
-    }
-  }
-}
-
-type Module = {
-  slug: string
-  title: string
-  description: string
-}
-
-type DashboardResponse = {
-  data: {
-    modules: Module[]
-    summary: {
-      username: string
-      location_count: number
-    }
-  }
-}
-
-type CameraLocation = {
-  id: number
-  location_name: string
-  descriptive_location: string
-  camera_identifier: string | null
-  live_feed_url: string | null
-  camera_specification: Record<string, string | number | null> | null
-  yolo_model_metadata: Record<string, string | number | null> | null
-  latitude: string | null
-  longitude: string | null
-}
-
-type LocationsResponse = {
-  data: CameraLocation[]
-}
+import {
+  createLocation,
+  loadDashboardData,
+  login,
+} from './services/api-service'
+import type { CameraLocation, ModuleItem } from './types/geospatial'
 
 type CameraBinding = {
   id: string
@@ -83,7 +46,6 @@ type UploadedYoloModel = {
   uploadedAt: string
 }
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL ?? '/api'
 const TOKEN_KEY = 'mini_geospatial_auth_token'
 const CAMERAS_KEY = 'mini_geospatial_cameras'
 const PREDICTIONS_KEY = 'mini_geospatial_predictions'
@@ -135,7 +97,7 @@ function App() {
   const [loginError, setLoginError] = useState('')
   const [isAuthenticating, setIsAuthenticating] = useState(false)
 
-  const [modules, setModules] = useState<Module[]>([])
+  const [modules, setModules] = useState<ModuleItem[]>([])
   const [locationCount, setLocationCount] = useState(0)
   const [locations, setLocations] = useState<CameraLocation[]>([])
   const [loadError, setLoadError] = useState('')
@@ -201,45 +163,25 @@ function App() {
 
     const loadDashboard = async () => {
       try {
-        const [dashboardResponse, locationsResponse] = await Promise.all([
-          fetch(`${API_BASE}/dashboard`, {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }),
-          fetch(`${API_BASE}/locations`, {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }),
-        ])
+        const payload = await loadDashboardData(token)
 
-        if (!dashboardResponse.ok || !locationsResponse.ok) {
-          throw new Error('Unable to load dashboard data.')
-        }
-
-        const dashboardJson = (await dashboardResponse.json()) as DashboardResponse
-        const locationsJson = (await locationsResponse.json()) as LocationsResponse
-
-        setModules(dashboardJson.data.modules)
-        setLocationCount(dashboardJson.data.summary.location_count)
-        setLocations(locationsJson.data)
+        setModules(payload.modules)
+        setLocationCount(payload.locationCount)
+        setLocations(payload.locations)
         setCameras((current) => {
           if (current.length > 0) {
             return current
           }
 
-          const seeded = locationsJson.data
-            .filter((location) => location.camera_identifier !== null)
+          const seeded = payload.locations
+            .filter((location) => location.cameraIdentifier !== null)
             .map((location) => {
-              const metadata = location.yolo_model_metadata ?? {}
-
               return {
                 id: makeId(),
-                name: location.camera_identifier ?? `${location.location_name} camera`,
-                liveFeedUrl: location.live_feed_url ?? '',
-                yoloModelName: toModelString(metadata.model_name),
-                yoloModelVersion: toModelString(metadata.model_version),
+                name: location.cameraIdentifier ?? `${location.locationName} camera`,
+                liveFeedUrl: location.liveFeedUrl ?? '',
+                yoloModelName: toModelString(location.yoloModelMetadata?.modelName),
+                yoloModelVersion: toModelString(location.yoloModelMetadata?.modelVersion),
                 locationId: location.id,
               }
             })
@@ -307,29 +249,10 @@ function App() {
     setLoginError('')
 
     try {
-      const response = await fetch(`${API_BASE}/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          username,
-          password,
-        }),
-      })
+      const issuedToken = await login(username, password)
 
-      const payload = (await response.json()) as
-        | LoginResponse
-        | {
-            message: string
-          }
-
-      if (!response.ok || !('data' in payload)) {
-        throw new Error('message' in payload ? payload.message : 'Login failed.')
-      }
-
-      localStorage.setItem(TOKEN_KEY, payload.data.token)
-      setToken(payload.data.token)
+      localStorage.setItem(TOKEN_KEY, issuedToken)
+      setToken(issuedToken)
       setUsername('')
       setPassword('')
     } catch (error) {
@@ -348,47 +271,29 @@ function App() {
     }
 
     try {
-      const response = await fetch(`${API_BASE}/locations`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
+      const createdLocation = await createLocation(token, {
+        locationName,
+        descriptiveLocation,
+        cameraIdentifier: cameraIdentifier || null,
+        liveFeedUrl: liveFeedUrl || null,
+        cameraSpecification: {
+          vendor: cameraVendor || null,
+          model: cameraModel || null,
+          resolution: cameraResolution || null,
+          fps: cameraFps === '' ? null : Number(cameraFps),
+          fieldOfView: cameraFov || null,
         },
-        body: JSON.stringify({
-          location_name: locationName,
-          descriptive_location: descriptiveLocation,
-          camera_identifier: cameraIdentifier || null,
-          live_feed_url: liveFeedUrl || null,
-          camera_specification: {
-            vendor: cameraVendor || null,
-            model: cameraModel || null,
-            resolution: cameraResolution || null,
-            fps: cameraFps === '' ? null : Number(cameraFps),
-            field_of_view: cameraFov || null,
-          },
-          yolo_model_metadata: {
-            model_name: modelName || null,
-            model_version: modelVersion || null,
-            confidence_threshold:
-              confidenceThreshold === '' ? null : Number(confidenceThreshold),
-            iou_threshold: iouThreshold === '' ? null : Number(iouThreshold),
-          },
-          latitude: latitude === '' ? null : Number(latitude),
-          longitude: longitude === '' ? null : Number(longitude),
-        }),
+        yoloModelMetadata: {
+          modelName: modelName || null,
+          modelVersion: modelVersion || null,
+          confidenceThreshold: confidenceThreshold === '' ? null : Number(confidenceThreshold),
+          iouThreshold: iouThreshold === '' ? null : Number(iouThreshold),
+        },
+        latitude: latitude === '' ? null : Number(latitude),
+        longitude: longitude === '' ? null : Number(longitude),
       })
 
-      const payload = (await response.json()) as
-        | { data: CameraLocation }
-        | { message: string }
-
-      if (!response.ok || !('data' in payload)) {
-        throw new Error(
-          'message' in payload ? payload.message : 'Unable to save location.',
-        )
-      }
-
-      setLocations((current) => [payload.data, ...current])
+      setLocations((current) => [createdLocation, ...current])
       setLocationCount((current) => current + 1)
       setLocationName('')
       setDescriptiveLocation('')
@@ -904,8 +809,8 @@ function App() {
                 onDragOver={(event) => event.preventDefault()}
                 onDrop={(event) => onDropCameraToLocation(event, location.id)}
               >
-                <h3>{location.location_name}</h3>
-                <p>{location.descriptive_location}</p>
+                <h3>{location.locationName}</h3>
+                <p>{location.descriptiveLocation}</p>
                 <p>CCTV attached: {attachedCameraCount}</p>
                 <p>
                   Coordinates: {location.latitude ?? '-'}, {location.longitude ?? '-'}
@@ -931,7 +836,7 @@ function App() {
             <option value="">Select location</option>
             {locations.map((location) => (
               <option key={location.id} value={location.id}>
-                {location.location_name}
+                {location.locationName}
               </option>
             ))}
           </select>
@@ -942,8 +847,8 @@ function App() {
         ) : (
           <div className="location-grid">
             <article className="location-card">
-              <h3>{selectedLocation.location_name}</h3>
-              <p>{selectedLocation.descriptive_location}</p>
+              <h3>{selectedLocation.locationName}</h3>
+              <p>{selectedLocation.descriptiveLocation}</p>
               <p>
                 Coordinates: {selectedLocation.latitude ?? '-'}, {selectedLocation.longitude ?? '-'}
               </p>
@@ -1027,7 +932,7 @@ function App() {
                 <h3>{prediction.objectClass}</h3>
                 <p>Confidence: {(prediction.confidence * 100).toFixed(1)}%</p>
                 <p>Camera: {camera?.name ?? 'Unknown camera'}</p>
-                <p>Location: {location?.location_name ?? 'Unassigned'}</p>
+                <p>Location: {location?.locationName ?? 'Unassigned'}</p>
                 <p>{new Date(prediction.timestamp).toLocaleString()}</p>
               </article>
             )
