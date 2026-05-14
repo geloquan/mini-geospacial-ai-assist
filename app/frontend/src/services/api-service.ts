@@ -80,6 +80,35 @@ export type UploadedImageProcessor = {
   modelPath: string | null
 }
 
+export type CreateCameraSourceInput = {
+  locationId: number
+  imageProcessorId: number | null
+  sourceName: string
+  cameraIdentifier: string | null
+  liveFeedUrl: string | null
+  cameraSpecification: {
+    vendor: string | null
+    model: string | null
+    resolution: string | null
+    fps: number | null
+    fieldOfView: string | null
+  }
+  isActive: boolean
+}
+
+export type CreateImageProcessorInput = {
+  name: string
+  modelName: string
+  modelVersion: string
+  isActive: boolean
+}
+
+type StoreCameraSourceApiResponse = {
+  data: {
+    id: number
+  }
+}
+
 export type CatalogResourceEndpoint =
   | 'catalog/locations'
   | 'catalog/camera-sources'
@@ -243,18 +272,49 @@ export const createLocation = async (
   return mapCameraLocation(payload.data)
 }
 
+export const createCameraSource = async (
+  token: string,
+  input: CreateCameraSourceInput,
+): Promise<number> => {
+  const payload = await requestJson<StoreCameraSourceApiResponse>('/catalog/camera-sources', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      location_id: input.locationId,
+      image_processor_id: input.imageProcessorId,
+      source_name: input.sourceName,
+      camera_identifier: input.cameraIdentifier,
+      live_feed_url: input.liveFeedUrl,
+      camera_specification: {
+        vendor: input.cameraSpecification.vendor,
+        model: input.cameraSpecification.model,
+        resolution: input.cameraSpecification.resolution,
+        fps: input.cameraSpecification.fps,
+        field_of_view: input.cameraSpecification.fieldOfView,
+      },
+      is_active: input.isActive,
+    }),
+  })
+
+  return payload.data.id
+}
+
 export const uploadImageProcessorModel = async (
   token: string,
   file: File,
+  input: CreateImageProcessorInput,
 ): Promise<UploadedImageProcessor> => {
-  const filenameWithoutExtension = file.name.replace(/\.[^/.]+$/, '')
   const extensionIndex = file.name.lastIndexOf('.')
   const extension = extensionIndex >= 0 ? file.name.slice(extensionIndex).toLowerCase() : ''
   const formData = new FormData()
-  formData.append('name', file.name)
-  formData.append('model_name', filenameWithoutExtension)
+  formData.append('name', input.name)
+  formData.append('model_name', input.modelName)
+  formData.append('model_version', input.modelVersion)
+  formData.append('is_active', input.isActive ? '1' : '0')
   formData.append('model_file', file)
-  formData.append('is_active', '1')
 
   const response = await fetch(`${API_BASE}/catalog/image-processors`, {
     method: 'POST',
@@ -272,7 +332,7 @@ export const uploadImageProcessorModel = async (
 
   return {
     id: payload.data.id,
-    fileName: file.name,
+    fileName: payload.data.name,
     extension,
     sizeBytes: file.size,
     uploadedAt: payload.data.created_at,
