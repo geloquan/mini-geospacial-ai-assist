@@ -4,7 +4,17 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import './index.css'
 import App from './App.tsx'
 
-const queryClient = new QueryClient()
+const staleTime = import.meta.env.DEV ? 1 : 60_000
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime,
+      retry: 1,
+      refetchOnWindowFocus: false,
+    },
+  },
+})
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
