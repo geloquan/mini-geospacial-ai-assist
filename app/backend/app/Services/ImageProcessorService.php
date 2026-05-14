@@ -3,16 +3,13 @@
 namespace App\Services;
 
 use App\Models\ImageProcessor;
-use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 
 class ImageProcessorService
 {
-    /**
-     * @return Collection<int, ImageProcessor>
-     */
-    public function listAll(): Collection
+    public function listPaginated(int $perPage): LengthAwarePaginator
     {
-        return ImageProcessor::query()->latest()->get();
+        return ImageProcessor::query()->latest()->paginate($perPage);
     }
 
     public function findById(int $id): ImageProcessor

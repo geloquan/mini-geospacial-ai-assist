@@ -3,16 +3,13 @@
 namespace App\Services;
 
 use App\Models\ObjectClassAlias;
-use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 
 class ObjectClassAliasService
 {
-    /**
-     * @return Collection<int, ObjectClassAlias>
-     */
-    public function listAll(): Collection
+    public function listPaginated(int $perPage): LengthAwarePaginator
     {
-        return ObjectClassAlias::query()->latest()->get();
+        return ObjectClassAlias::query()->latest()->paginate($perPage);
     }
 
     public function findById(int $id): ObjectClassAlias

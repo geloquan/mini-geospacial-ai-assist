@@ -8,6 +8,7 @@ use App\Http\Requests\Api\UpdateCameraSourceRequest;
 use App\Http\Resources\CameraSourceResource;
 use App\Models\CameraSource;
 use App\Services\CameraSourceService;
+use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Http\Response;
 
@@ -17,9 +18,11 @@ class CameraSourceController extends Controller
     {
     }
 
-    public function index(): AnonymousResourceCollection
+    public function index(Request $request): AnonymousResourceCollection
     {
-        return CameraSourceResource::collection($this->cameraSourceService->listAll());
+        $perPage = max(1, min((int) $request->query('per_page', 15), 100));
+
+        return CameraSourceResource::collection($this->cameraSourceService->listPaginated($perPage));
     }
 
     public function store(StoreCameraSourceRequest $request): CameraSourceResource

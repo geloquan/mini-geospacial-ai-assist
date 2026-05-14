@@ -58,6 +58,34 @@ type StoreLocationApiResponse = {
   data: ApiCameraLocation
 }
 
+export type CatalogResourceEndpoint =
+  | 'catalog/locations'
+  | 'catalog/camera-sources'
+  | 'catalog/image-processors'
+  | 'catalog/object-classes'
+  | 'catalog/object-class-aliases'
+  | 'catalog/image-processor-object-classes'
+  | 'catalog/prediction-thresholds'
+  | 'catalog/camera-source-health-logs'
+
+type CatalogApiResponse = {
+  data: Record<string, unknown>[]
+  meta: {
+    current_page: number
+    last_page: number
+    per_page: number
+    total: number
+  }
+}
+
+export type CatalogTablePayload = {
+  rows: Record<string, unknown>[]
+  currentPage: number
+  lastPage: number
+  perPage: number
+  total: number
+}
+
 const toNullableNumber = (value: number | string | null): number | null => {
   if (value === null) {
     return null
@@ -191,4 +219,30 @@ export const createLocation = async (
   })
 
   return mapCameraLocation(payload.data)
+}
+
+export const loadCatalogTable = async (
+  token: string,
+  endpoint: CatalogResourceEndpoint,
+  page: number,
+  perPage = 10,
+): Promise<CatalogTablePayload> => {
+  const query = new URLSearchParams({
+    page: String(page),
+    per_page: String(perPage),
+  })
+
+  const payload = await requestJson<CatalogApiResponse>(`/${endpoint}?${query.toString()}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  })
+
+  return {
+    rows: payload.data,
+    currentPage: payload.meta.current_page,
+    lastPage: payload.meta.last_page,
+    perPage: payload.meta.per_page,
+    total: payload.meta.total,
+  }
 }

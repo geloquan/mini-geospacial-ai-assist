@@ -3,16 +3,13 @@
 namespace App\Services;
 
 use App\Models\Location;
-use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 
 class LocationService
 {
-    /**
-     * @return Collection<int, Location>
-     */
-    public function listAll(): Collection
+    public function listPaginated(int $perPage): LengthAwarePaginator
     {
-        return Location::query()->latest()->get();
+        return Location::query()->latest()->paginate($perPage);
     }
 
     public function findById(int $id): Location

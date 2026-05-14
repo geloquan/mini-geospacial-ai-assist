@@ -3,16 +3,13 @@
 namespace App\Services;
 
 use App\Models\PredictionThreshold;
-use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 
 class PredictionThresholdService
 {
-    /**
-     * @return Collection<int, PredictionThreshold>
-     */
-    public function listAll(): Collection
+    public function listPaginated(int $perPage): LengthAwarePaginator
     {
-        return PredictionThreshold::query()->latest()->get();
+        return PredictionThreshold::query()->latest()->paginate($perPage);
     }
 
     public function findById(int $id): PredictionThreshold

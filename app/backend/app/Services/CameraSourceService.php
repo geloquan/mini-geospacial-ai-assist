@@ -3,16 +3,13 @@
 namespace App\Services;
 
 use App\Models\CameraSource;
-use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 
 class CameraSourceService
 {
-    /**
-     * @return Collection<int, CameraSource>
-     */
-    public function listAll(): Collection
+    public function listPaginated(int $perPage): LengthAwarePaginator
     {
-        return CameraSource::query()->latest()->get();
+        return CameraSource::query()->latest()->paginate($perPage);
     }
 
     public function findById(int $id): CameraSource

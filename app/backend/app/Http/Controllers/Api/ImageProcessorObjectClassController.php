@@ -8,6 +8,7 @@ use App\Http\Requests\Api\UpdateImageProcessorObjectClassRequest;
 use App\Http\Resources\ImageProcessorObjectClassResource;
 use App\Models\ImageProcessorObjectClass;
 use App\Services\ImageProcessorObjectClassService;
+use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Http\Response;
 
@@ -17,9 +18,11 @@ class ImageProcessorObjectClassController extends Controller
     {
     }
 
-    public function index(): AnonymousResourceCollection
+    public function index(Request $request): AnonymousResourceCollection
     {
-        return ImageProcessorObjectClassResource::collection($this->imageProcessorObjectClassService->listAll());
+        $perPage = max(1, min((int) $request->query('per_page', 15), 100));
+
+        return ImageProcessorObjectClassResource::collection($this->imageProcessorObjectClassService->listPaginated($perPage));
     }
 
     public function store(StoreImageProcessorObjectClassRequest $request): ImageProcessorObjectClassResource

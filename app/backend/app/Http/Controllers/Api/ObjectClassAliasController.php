@@ -8,6 +8,7 @@ use App\Http\Requests\Api\UpdateObjectClassAliasRequest;
 use App\Http\Resources\ObjectClassAliasResource;
 use App\Models\ObjectClassAlias;
 use App\Services\ObjectClassAliasService;
+use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Http\Response;
 
@@ -17,9 +18,11 @@ class ObjectClassAliasController extends Controller
     {
     }
 
-    public function index(): AnonymousResourceCollection
+    public function index(Request $request): AnonymousResourceCollection
     {
-        return ObjectClassAliasResource::collection($this->objectClassAliasService->listAll());
+        $perPage = max(1, min((int) $request->query('per_page', 15), 100));
+
+        return ObjectClassAliasResource::collection($this->objectClassAliasService->listPaginated($perPage));
     }
 
     public function store(StoreObjectClassAliasRequest $request): ObjectClassAliasResource

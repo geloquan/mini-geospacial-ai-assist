@@ -8,6 +8,7 @@ use App\Http\Requests\Api\UpdateCameraSourceHealthLogRequest;
 use App\Http\Resources\CameraSourceHealthLogResource;
 use App\Models\CameraSourceHealthLog;
 use App\Services\CameraSourceHealthLogService;
+use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Http\Response;
 
@@ -17,9 +18,11 @@ class CameraSourceHealthLogController extends Controller
     {
     }
 
-    public function index(): AnonymousResourceCollection
+    public function index(Request $request): AnonymousResourceCollection
     {
-        return CameraSourceHealthLogResource::collection($this->cameraSourceHealthLogService->listAll());
+        $perPage = max(1, min((int) $request->query('per_page', 15), 100));
+
+        return CameraSourceHealthLogResource::collection($this->cameraSourceHealthLogService->listPaginated($perPage));
     }
 
     public function store(StoreCameraSourceHealthLogRequest $request): CameraSourceHealthLogResource

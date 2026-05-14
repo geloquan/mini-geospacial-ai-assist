@@ -8,6 +8,7 @@ use App\Http\Requests\Api\UpdateLocationRequest;
 use App\Http\Resources\LocationResource;
 use App\Models\Location;
 use App\Services\LocationService;
+use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Http\Response;
 
@@ -17,9 +18,11 @@ class LocationController extends Controller
     {
     }
 
-    public function index(): AnonymousResourceCollection
+    public function index(Request $request): AnonymousResourceCollection
     {
-        return LocationResource::collection($this->locationService->listAll());
+        $perPage = max(1, min((int) $request->query('per_page', 15), 100));
+
+        return LocationResource::collection($this->locationService->listPaginated($perPage));
     }
 
     public function store(StoreLocationRequest $request): LocationResource

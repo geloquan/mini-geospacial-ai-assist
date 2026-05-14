@@ -3,16 +3,13 @@
 namespace App\Services;
 
 use App\Models\CameraSourceHealthLog;
-use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 
 class CameraSourceHealthLogService
 {
-    /**
-     * @return Collection<int, CameraSourceHealthLog>
-     */
-    public function listAll(): Collection
+    public function listPaginated(int $perPage): LengthAwarePaginator
     {
-        return CameraSourceHealthLog::query()->latest()->get();
+        return CameraSourceHealthLog::query()->latest()->paginate($perPage);
     }
 
     public function findById(int $id): CameraSourceHealthLog

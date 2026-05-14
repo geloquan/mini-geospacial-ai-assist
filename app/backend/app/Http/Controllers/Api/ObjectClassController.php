@@ -8,6 +8,7 @@ use App\Http\Requests\Api\UpdateObjectClassRequest;
 use App\Http\Resources\ObjectClassResource;
 use App\Models\ObjectClass;
 use App\Services\ObjectClassService;
+use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Http\Response;
 
@@ -17,9 +18,11 @@ class ObjectClassController extends Controller
     {
     }
 
-    public function index(): AnonymousResourceCollection
+    public function index(Request $request): AnonymousResourceCollection
     {
-        return ObjectClassResource::collection($this->objectClassService->listAll());
+        $perPage = max(1, min((int) $request->query('per_page', 15), 100));
+
+        return ObjectClassResource::collection($this->objectClassService->listPaginated($perPage));
     }
 
     public function store(StoreObjectClassRequest $request): ObjectClassResource

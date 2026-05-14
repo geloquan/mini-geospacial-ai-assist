@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { DragEvent, FormEvent, ReactNode } from 'react'
 import { login } from './services/api-service'
+import type { CatalogResourceEndpoint } from './services/api-service'
 import type { CameraLocation } from './types/geospatial'
 import { useDashboardQuery } from './hooks/use-dashboard-query'
 import { useCreateLocationMutation } from './hooks/use-create-location-mutation'
+import { useCatalogTableQuery } from './hooks/use-catalog-table-query'
 import {
   Shield, LogOut, LogIn, MapPin, Camera, Activity, Cpu, Upload, Plus,
   Tag, Link2, Eye, Crosshair, Layers, AlertTriangle, ChevronRight,
@@ -53,6 +55,21 @@ const YOLO_UPLOADS_KEY = 'mini_geospatial_yolo_uploads'
 const MAX_MODEL_SIZE_BYTES = 100 * 1024 * 1024
 const ALLOWED_MODEL_EXTENSIONS = ['.pt', '.onnx', '.engine', '.tflite', '.pb']
 const EMPTY_LOCATIONS: CameraLocation[] = []
+const CATALOG_PAGE_SIZE = 10
+
+const CATALOG_TABLES: Array<{ endpoint: CatalogResourceEndpoint; label: string }> = [
+  { endpoint: 'catalog/locations', label: 'Locations' },
+  { endpoint: 'catalog/camera-sources', label: 'Camera Sources' },
+  { endpoint: 'catalog/image-processors', label: 'Image Processors' },
+  { endpoint: 'catalog/object-classes', label: 'Object Classes' },
+  { endpoint: 'catalog/object-class-aliases', label: 'Object Class Aliases' },
+  {
+    endpoint: 'catalog/image-processor-object-classes',
+    label: 'Image Processor Object Classes',
+  },
+  { endpoint: 'catalog/prediction-thresholds', label: 'Prediction Thresholds' },
+  { endpoint: 'catalog/camera-source-health-logs', label: 'Camera Source Health Logs' },
+]
 
 // ─── Storage helpers ──────────────────────────────────────────────────────────
 
@@ -521,6 +538,10 @@ function App() {
   const [aliasCanonicalClass, setAliasCanonicalClass] = useState('')
   const [aliasContext, setAliasContext] = useState('')
   const [selectedLocationId, setSelectedLocationId] = useState<number | null>(null)
+  const [selectedCatalogEndpoint, setSelectedCatalogEndpoint] = useState<CatalogResourceEndpoint>(
+    'catalog/locations',
+  )
+  const [selectedCatalogPage, setSelectedCatalogPage] = useState(1)
 
   const [cameras, setCameras] = useState<CameraBinding[]>(() => readStorage<CameraBinding[]>(CAMERAS_KEY, []))
   const [predictions, setPredictions] = useState<PredictionItem[]>(() => readStorage<PredictionItem[]>(PREDICTIONS_KEY, []))
@@ -530,17 +551,51 @@ function App() {
 
   const { data: dashboardData, error: dashboardError } = useDashboardQuery(token)
   const createLocationMutation = useCreateLocationMutation()
+  const {
+    data: catalogTableData,
+    error: catalogTableError,
+    isFetching: isCatalogTableFetching,
+  } = useCatalogTableQuery(
+    token,
+    selectedCatalogEndpoint,
+    selectedCatalogPage,
+    CATALOG_PAGE_SIZE,
+  )
 
   const modules = dashboardData?.modules ?? []
   const locationCount = dashboardData?.locationCount ?? 0
   const locations = dashboardData?.locations ?? EMPTY_LOCATIONS
   const loadError = dashboardError instanceof Error ? dashboardError.message : dashboardError === null ? '' : 'Unable to load dashboard data.'
+  const selectedCatalogLabel = CATALOG_TABLES.find(
+    (catalogTable) => catalogTable.endpoint === selectedCatalogEndpoint,
+  )?.label
+    ?? 'Catalog'
+  const catalogTableRows = catalogTableData?.rows ?? []
+  const catalogTableColumns = useMemo(
+    () => Array.from(new Set(catalogTableRows.flatMap((row) => Object.keys(row)))),
+    [catalogTableRows],
+  )
+  const catalogTableErrorMessage = catalogTableError instanceof Error
+    ? catalogTableError.message
+    : catalogTableError === null
+      ? ''
+      : 'Unable to load catalog resources.'
 
   useEffect(() => { writeStorage(CAMERAS_KEY, cameras) }, [cameras])
   useEffect(() => { writeStorage(PREDICTIONS_KEY, predictions) }, [predictions])
   useEffect(() => { writeStorage(OBJECT_CLASSES_KEY, objectClasses) }, [objectClasses])
   useEffect(() => { writeStorage(ALIAS_GROUPS_KEY, aliasGroups) }, [aliasGroups])
   useEffect(() => { writeStorage(YOLO_UPLOADS_KEY, uploadedYoloModels) }, [uploadedYoloModels])
+  useEffect(() => { setSelectedCatalogPage(1) }, [selectedCatalogEndpoint])
+  useEffect(() => {
+    if (!catalogTableData) {
+      return
+    }
+
+    if (selectedCatalogPage > catalogTableData.lastPage) {
+      setSelectedCatalogPage(catalogTableData.lastPage)
+    }
+  }, [catalogTableData, selectedCatalogPage])
 
   const effectiveSelectedLocationId = selectedLocationId ?? locations[0]?.id ?? null
   const selectedLocation = useMemo(() => locations.find((l) => l.id === effectiveSelectedLocationId) ?? null, [effectiveSelectedLocationId, locations])
@@ -746,6 +801,17 @@ function App() {
   // ── Dashboard ─────────────────────────────────────────────────────────────────
 
   const gridAuto = (min = 220) => ({ display:'grid', gap:12, gridTemplateColumns:`repeat(auto-fill,minmax(${min}px,1fr))` })
+  const formatCatalogCellValue = (value: unknown): string => {
+    if (value === null || value === undefined) {
+      return '—'
+    }
+
+    if (typeof value === 'object') {
+      return JSON.stringify(value)
+    }
+
+    return String(value)
+  }
 
   return (
     <>
@@ -819,6 +885,131 @@ function App() {
             </div>
           </Panel>
         )}
+
+        <Panel>
+          <SectionTitle icon={Database} badge={selectedCatalogLabel}>Catalog Resource Browser</SectionTitle>
+
+          <div style={{ display:'flex',alignItems:'flex-end',justifyContent:'space-between',gap:12,flexWrap:'wrap',marginBottom:14 }}>
+            <div style={{ minWidth:280,flex:'1 1 360px' }}>
+              <FieldGuide label="Catalog Resource" icon={Layers} hint="Switch between API catalog resources">
+                <Select
+                  value={selectedCatalogEndpoint}
+                  onChange={(event) => setSelectedCatalogEndpoint(event.target.value as CatalogResourceEndpoint)}
+                >
+                  {CATALOG_TABLES.map((catalogTable) => (
+                    <option key={catalogTable.endpoint} value={catalogTable.endpoint}>
+                      {catalogTable.label}
+                    </option>
+                  ))}
+                </Select>
+              </FieldGuide>
+            </div>
+            {catalogTableData && (
+              <div style={{ display:'flex',alignItems:'center',gap:8,flexWrap:'wrap' }}>
+                <Badge variant="default">{catalogTableData.total} total</Badge>
+                <Badge variant="default">
+                  page {catalogTableData.currentPage} of {catalogTableData.lastPage}
+                </Badge>
+                <Badge variant="default">{catalogTableData.perPage} per page</Badge>
+              </div>
+            )}
+          </div>
+
+          {catalogTableErrorMessage && <ErrorBanner message={catalogTableErrorMessage}/>}
+
+          <div style={{
+            overflowX:'auto',
+            border:'1px solid var(--border-subtle)',
+            borderRadius:'var(--radius-md)',
+            background:'var(--bg-surface)',
+          }}>
+            {catalogTableColumns.length === 0 ? (
+              <div style={{ padding:'24px',textAlign:'center' }}>
+                <p style={{ fontFamily:"'JetBrains Mono',monospace",fontSize:11,color:'var(--text-hint)',margin:0 }}>
+                  {isCatalogTableFetching ? 'Loading catalog data...' : 'No records available for this resource.'}
+                </p>
+              </div>
+            ) : (
+              <table style={{ width:'100%',borderCollapse:'collapse',minWidth:960 }}>
+                <thead>
+                <tr>
+                  {catalogTableColumns.map((column) => (
+                    <th
+                      key={column}
+                      style={{
+                        textAlign:'left',
+                        padding:'10px 12px',
+                        borderBottom:'1px solid var(--border-subtle)',
+                        fontFamily:"'JetBrains Mono',monospace",
+                        fontSize:10,
+                        textTransform:'uppercase',
+                        letterSpacing:'0.1em',
+                        color:'var(--text-secondary)',
+                        position:'sticky',
+                        top:0,
+                        background:'var(--bg-surface)',
+                        zIndex:1,
+                      }}
+                    >
+                      {column}
+                    </th>
+                  ))}
+                </tr>
+                </thead>
+                <tbody>
+                {catalogTableRows.map((row, rowIndex) => (
+                  <tr key={`row-${rowIndex}`}>
+                    {catalogTableColumns.map((column) => (
+                      <td
+                        key={`${rowIndex}-${column}`}
+                        style={{
+                          padding:'10px 12px',
+                          borderBottom:'1px solid var(--border-subtle)',
+                          fontFamily:"'JetBrains Mono',monospace",
+                          fontSize:11,
+                          color:'var(--text-primary)',
+                          verticalAlign:'top',
+                          maxWidth:280,
+                          wordBreak:'break-word',
+                          background: rowIndex % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.01)',
+                        }}
+                      >
+                        {formatCatalogCellValue(row[column])}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+
+          {catalogTableData && catalogTableData.lastPage > 1 && (
+            <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',gap:10,marginTop:12,flexWrap:'wrap' }}>
+              <p style={{ margin:0,fontFamily:"'JetBrains Mono',monospace",fontSize:10,color:'var(--text-hint)' }}>
+                Showing page {catalogTableData.currentPage} of {catalogTableData.lastPage}
+              </p>
+              <div style={{ display:'flex',alignItems:'center',gap:8 }}>
+                <Btn
+                  variant="ghost"
+                  size="sm"
+                  disabled={catalogTableData.currentPage <= 1 || isCatalogTableFetching}
+                  onClick={() => setSelectedCatalogPage((current) => Math.max(1, current - 1))}
+                >
+                  Previous
+                </Btn>
+                <Btn
+                  variant="ghost"
+                  size="sm"
+                  disabled={catalogTableData.currentPage >= catalogTableData.lastPage || isCatalogTableFetching}
+                  onClick={() => setSelectedCatalogPage((current) => Math.min(catalogTableData.lastPage, current + 1))}
+                >
+                  Next
+                </Btn>
+              </div>
+            </div>
+          )}
+        </Panel>
 
         {/* ── Create Location ── */}
         <Panel className="fade-up stagger-2">

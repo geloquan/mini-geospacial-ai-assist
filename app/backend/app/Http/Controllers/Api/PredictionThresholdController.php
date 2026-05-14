@@ -8,6 +8,7 @@ use App\Http\Requests\Api\UpdatePredictionThresholdRequest;
 use App\Http\Resources\PredictionThresholdResource;
 use App\Models\PredictionThreshold;
 use App\Services\PredictionThresholdService;
+use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Http\Response;
 
@@ -17,9 +18,11 @@ class PredictionThresholdController extends Controller
     {
     }
 
-    public function index(): AnonymousResourceCollection
+    public function index(Request $request): AnonymousResourceCollection
     {
-        return PredictionThresholdResource::collection($this->predictionThresholdService->listAll());
+        $perPage = max(1, min((int) $request->query('per_page', 15), 100));
+
+        return PredictionThresholdResource::collection($this->predictionThresholdService->listPaginated($perPage));
     }
 
     public function store(StorePredictionThresholdRequest $request): PredictionThresholdResource
