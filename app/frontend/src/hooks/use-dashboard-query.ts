@@ -13,7 +13,7 @@ export const useDashboardQuery = (token: string | null) =>
       const authToken = queryKey[1]
 
       if (authToken === null) {
-        throw new Error('Please login first.')
+        throw new Error('Authentication token is required.')
       }
 
       return loadDashboardData(authToken)

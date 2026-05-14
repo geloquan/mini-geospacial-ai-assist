@@ -147,7 +147,11 @@ function App() {
   const locationCount = dashboardData?.locationCount ?? 0
   const locations = dashboardData?.locations ?? EMPTY_LOCATIONS
   const loadError =
-    dashboardError instanceof Error ? dashboardError.message : ''
+    dashboardError instanceof Error
+      ? dashboardError.message
+      : dashboardError === null
+        ? ''
+        : 'Unable to load dashboard data.'
 
   useEffect(() => {
     writeStorage(CAMERAS_KEY, cameras)
