@@ -49,7 +49,7 @@ return Application::configure(basePath: dirname(__DIR__))
                     Response::HTTP_TOO_MANY_REQUESTS => 'Too Many Requests',
                     Response::HTTP_INTERNAL_SERVER_ERROR => 'Internal Server Error',
                     Response::HTTP_SERVICE_UNAVAILABLE => 'Service Unavailable',
-                    default => 'Request failed.',
+                    default => 'Request Failed',
                 };
             }
 
