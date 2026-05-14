@@ -36,6 +36,24 @@ npm run backend:assets:dev
 npm run backend:assets:build
 ```
 
+## API and UI Baseline
+
+- Login-only authentication (single user type) via `POST /api/login`
+- Bearer-token protected dashboard and camera location APIs:
+  - `GET /api/dashboard`
+  - `GET /api/locations`
+  - `POST /api/locations`
+- Dashboard modules focus on:
+  - Live feed configuration
+  - Camera specification
+  - YOLO model metadata
+  - Camera placement locations
+
+For local backend seed data, default credentials are:
+
+- Username: `admin`
+- Password: `1234`
+
 ## Deployment Automation
 
 Deployment-related automation lives in GitHub Actions and is intentionally scoped to deployment events only:
@@ -51,4 +69,3 @@ See `.github/workflows/deployment.yml`.
 - Do not initialize nested git repositories under `app/frontend` or `app/backend`.
 - Keep environment files local and uncommitted (`.env*` patterns are ignored).
 - Build artifacts (`app/frontend/dist`) are ignored and must not be committed.
-
