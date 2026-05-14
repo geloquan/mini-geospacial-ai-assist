@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Attributes\Cast;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 
@@ -16,10 +15,16 @@ use Illuminate\Database\Eloquent\Model;
     'latitude',
     'longitude',
 ])]
-#[Cast([
-    'camera_specification' => 'array',
-    'yolo_model_metadata' => 'array',
-])]
 class CameraLocation extends Model
 {
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'camera_specification' => 'array',
+            'yolo_model_metadata' => 'array',
+        ];
+    }
 }
