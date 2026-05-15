@@ -138,6 +138,26 @@ export type CatalogTablePayload = {
   total: number
 }
 
+type RawDataCollectionGalleryApiResponse = {
+  data: {
+    raw_data_collection_setting: Record<string, unknown>
+    camera_source: Record<string, unknown>
+    location: Record<string, unknown> | null
+    gallery: {
+      storage_destination: string
+      image_paths: string[]
+    }
+  }
+}
+
+export type RawDataCollectionGalleryPayload = {
+  rawDataCollectionSetting: Record<string, unknown>
+  cameraSource: Record<string, unknown>
+  location: Record<string, unknown> | null
+  storageDestination: string
+  imagePaths: string[]
+}
+
 const toNullableNumber = (value: number | string | null): number | null => {
   if (value === null) {
     return null
@@ -493,5 +513,27 @@ export const loadCatalogTable = async (
     lastPage: payload.meta.last_page,
     perPage: payload.meta.per_page,
     total: payload.meta.total,
+  }
+}
+
+export const loadRawDataCollectionGallery = async (
+  token: string,
+  rawDataCollectionSettingId: number,
+): Promise<RawDataCollectionGalleryPayload> => {
+  const payload = await requestJson<RawDataCollectionGalleryApiResponse>(
+    `/catalog/raw-data-collection-settings/${rawDataCollectionSettingId}/gallery`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    },
+  )
+
+  return {
+    rawDataCollectionSetting: payload.data.raw_data_collection_setting,
+    cameraSource: payload.data.camera_source,
+    location: payload.data.location,
+    storageDestination: payload.data.gallery.storage_destination,
+    imagePaths: Array.isArray(payload.data.gallery.image_paths) ? payload.data.gallery.image_paths : [],
   }
 }

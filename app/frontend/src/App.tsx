@@ -13,6 +13,7 @@ import { useUploadImageProcessorModelMutation } from './hooks/use-upload-image-p
 import { useUpdateImageProcessorMutation } from './hooks/use-update-image-processor-mutation'
 import { useCreateRawDataCollectionSettingMutation } from './hooks/use-create-raw-data-collection-setting-mutation'
 import { useUpdateRawDataCollectionSettingMutation } from './hooks/use-update-raw-data-collection-setting-mutation'
+import { useRawDataCollectionGalleryQuery } from './hooks/use-raw-data-collection-gallery-query'
 import './App.css'
 
 const TOKEN_KEY = 'mini_geospatial_auth_token'
@@ -121,6 +122,8 @@ function App() {
     useState<RawDataCollectionSettingEditorMode>('list')
   const [editingRawDataCollectionSettingId, setEditingRawDataCollectionSettingId] = useState<number | null>(null)
   const [selectedRawDataCollectionSettingsPage, setSelectedRawDataCollectionSettingsPage] = useState(1)
+  const [selectedRawDataCollectionCameraSourceId, setSelectedRawDataCollectionCameraSourceId] = useState<number | null>(null)
+  const [selectedRawDataCollectionSettingId, setSelectedRawDataCollectionSettingId] = useState<number | null>(null)
 
   const [selectedCatalogEndpoint, setSelectedCatalogEndpoint] = useState<CatalogResourceEndpoint>('catalog/locations')
   const [selectedCatalogPage, setSelectedCatalogPage] = useState(1)
@@ -165,6 +168,11 @@ function App() {
   const { data: locationOptionsData } = useCatalogTableQuery(token, 'catalog/locations', 1, 100)
   const { data: imageProcessorOptionsData } = useCatalogTableQuery(token, 'catalog/image-processors', 1, 100)
   const { data: cameraSourceOptionsData } = useCatalogTableQuery(token, 'catalog/camera-sources', 1, 100)
+  const {
+    data: rawDataCollectionGalleryData,
+    error: rawDataCollectionGalleryError,
+    isFetching: isRawDataCollectionGalleryFetching,
+  } = useRawDataCollectionGalleryQuery(token, selectedRawDataCollectionSettingId)
 
   const modules = dashboardData?.modules ?? []
   const locationCount = dashboardData?.locationCount ?? 0
@@ -448,6 +456,25 @@ function App() {
         .filter((cameraSource): cameraSource is { id: number; sourceName: string } => cameraSource !== null),
     [cameraSourceOptionsData?.rows],
   )
+  const rawDataCollectionCameraNodes = useMemo(
+    () =>
+      cameraSourceOptions
+        .map((cameraSourceOption) => ({
+          ...cameraSourceOption,
+          rawDataCollections: rawDataCollectionSettingRows.filter(
+            (rawDataCollectionSetting) => rawDataCollectionSetting.cameraSourceId === cameraSourceOption.id,
+          ),
+        }))
+        .filter((cameraSourceOption) => cameraSourceOption.rawDataCollections.length > 0),
+    [cameraSourceOptions, rawDataCollectionSettingRows],
+  )
+  const selectedRawDataCollectionCameraNode = useMemo(
+    () =>
+      selectedRawDataCollectionCameraSourceId === null
+        ? null
+        : rawDataCollectionCameraNodes.find((node) => node.id === selectedRawDataCollectionCameraSourceId) ?? null,
+    [rawDataCollectionCameraNodes, selectedRawDataCollectionCameraSourceId],
+  )
 
   const loadError = dashboardError instanceof Error ? dashboardError.message : ''
   const catalogLoadError = catalogError instanceof Error ? catalogError.message : ''
@@ -458,6 +485,8 @@ function App() {
     imageProcessorsCatalogError instanceof Error ? imageProcessorsCatalogError.message : ''
   const rawDataCollectionSettingsLoadError =
     rawDataCollectionSettingsCatalogError instanceof Error ? rawDataCollectionSettingsCatalogError.message : ''
+  const rawDataCollectionGalleryLoadError =
+    rawDataCollectionGalleryError instanceof Error ? rawDataCollectionGalleryError.message : ''
 
   const navItems = [
     { key: 'overview', label: 'Overview', icon: LayoutDashboard },
@@ -490,6 +519,17 @@ function App() {
   }
 
   const onLogout = () => { localStorage.removeItem(TOKEN_KEY); setToken(null) }
+  const renderMetadataValue = (value: unknown): string => {
+    if (value === null || value === undefined || value === '') {
+      return '—'
+    }
+
+    if (typeof value === 'object') {
+      return JSON.stringify(value)
+    }
+
+    return String(value)
+  }
 
   const resetLocationEditor = () => {
     setLocationEditorMode('list')
@@ -1478,66 +1518,144 @@ function App() {
                   <div className="alert alert-error" style={{ marginBottom: 16 }}>{rawDataCollectionSettingsLoadError}</div>
                 )}
 
-                <div className="table-wrap">
-                  {rawDataCollectionSettingRows.length === 0 ? (
-                    <div className="empty-state">
-                      <div className="empty-icon"><Database size={28} /></div>
-                      {isRawDataCollectionSettingsFetching
-                        ? 'Fetching raw data collection settings...'
-                        : 'No raw data collection settings available.'}
-                    </div>
-                  ) : (
-                    <table className="data-table">
-                      <thead>
-                      <tr>
-                        <th>id</th>
-                        <th>camera_source_id</th>
-                        <th>storage_destination</th>
-                        <th>max_storage_size_mb</th>
-                        <th>max_image_count</th>
-                        <th>lifecycle_strategy</th>
-                        <th>frame_sampling_interval</th>
-                        <th>collection_type</th>
-                        <th>actions</th>
-                      </tr>
-                      </thead>
-                      <tbody>
-                      {rawDataCollectionSettingRows.map((rawDataCollectionSetting) => (
-                        <tr key={rawDataCollectionSetting.id}>
-                          <td>{rawDataCollectionSetting.id}</td>
-                          <td>{rawDataCollectionSetting.cameraSourceId}</td>
-                          <td>{rawDataCollectionSetting.storageDestination}</td>
-                          <td>
-                            {rawDataCollectionSetting.maxStorageSizeMb === null
-                              ? <span className="table-null">—</span>
-                              : String(rawDataCollectionSetting.maxStorageSizeMb)}
-                          </td>
-                          <td>
-                            {rawDataCollectionSetting.maxImageCount === null
-                              ? <span className="table-null">—</span>
-                              : String(rawDataCollectionSetting.maxImageCount)}
-                          </td>
-                          <td>{rawDataCollectionSetting.lifecycleStrategy}</td>
-                          <td>
-                            {rawDataCollectionSetting.frameSamplingIntervalValue === null
-                              ? <span className="table-null">—</span>
-                              : `${rawDataCollectionSetting.frameSamplingIntervalValue} ${rawDataCollectionSetting.frameSamplingIntervalUnit}`}
-                          </td>
-                          <td>{rawDataCollectionSetting.collectionType}</td>
-                          <td>
+                <div className="raw-data-layout">
+                  <div className="raw-data-pane">
+                    <div className="raw-data-pane-title">Raw Data Collection File Manager</div>
+                    {rawDataCollectionCameraNodes.length === 0 ? (
+                      <div className="empty-state" style={{ padding: '24px 12px' }}>
+                        {isRawDataCollectionSettingsFetching
+                          ? 'Fetching raw data collections...'
+                          : 'No raw data collections available.'}
+                      </div>
+                    ) : (
+                      <div className="raw-data-tree">
+                        {rawDataCollectionCameraNodes.map((cameraNode) => (
+                          <div key={cameraNode.id} className="raw-data-tree-camera">
                             <button
-                              className="btn btn-ghost"
+                              className={`raw-data-tree-btn${selectedRawDataCollectionCameraSourceId === cameraNode.id ? ' active' : ''}`}
                               type="button"
-                              onClick={() => onRawDataCollectionSettingEdit(rawDataCollectionSetting.id)}
+                              onClick={() => {
+                                setSelectedRawDataCollectionCameraSourceId(cameraNode.id)
+                                setSelectedRawDataCollectionSettingId(null)
+                              }}
                             >
-                              Edit
+                              Camera Source: {cameraNode.sourceName}
                             </button>
-                          </td>
-                        </tr>
-                      ))}
-                      </tbody>
-                    </table>
-                  )}
+                            {selectedRawDataCollectionCameraSourceId === cameraNode.id && (
+                              <div className="raw-data-tree-children">
+                                {cameraNode.rawDataCollections.map((rawDataCollectionSetting) => (
+                                  <button
+                                    key={rawDataCollectionSetting.id}
+                                    className={`raw-data-tree-btn child${selectedRawDataCollectionSettingId === rawDataCollectionSetting.id ? ' active' : ''}`}
+                                    type="button"
+                                    onClick={() => setSelectedRawDataCollectionSettingId(rawDataCollectionSetting.id)}
+                                  >
+                                    Raw Data Collection #{rawDataCollectionSetting.id}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <div className="raw-data-pane">
+                    <div className="raw-data-pane-title">Collection Gallery & Metadata</div>
+                    {selectedRawDataCollectionCameraNode === null ? (
+                      <div className="empty-state" style={{ padding: '24px 12px' }}>
+                        Select a camera source to view its raw data collections.
+                      </div>
+                    ) : selectedRawDataCollectionSettingId === null ? (
+                      <div className="empty-state" style={{ padding: '24px 12px' }}>
+                        Select a raw data collection under "{selectedRawDataCollectionCameraNode.sourceName}".
+                      </div>
+                    ) : isRawDataCollectionGalleryFetching ? (
+                      <div className="empty-state" style={{ padding: '24px 12px' }}>Loading gallery...</div>
+                    ) : rawDataCollectionGalleryLoadError ? (
+                      <div className="alert alert-error">{rawDataCollectionGalleryLoadError}</div>
+                    ) : rawDataCollectionGalleryData ? (
+                      <div style={{ display: 'grid', gap: 12 }}>
+                        <div className="catalog-toolbar" style={{ marginBottom: 0 }}>
+                          <button
+                            className="btn btn-ghost"
+                            type="button"
+                            onClick={() => onRawDataCollectionSettingEdit(selectedRawDataCollectionSettingId)}
+                          >
+                            Edit Selected Raw Data Collection
+                          </button>
+                        </div>
+                        <div className="raw-data-metadata-grid">
+                          <div className="raw-data-metadata-card">
+                            <div className="raw-data-metadata-title">Raw Data Collection</div>
+                            <div className="raw-data-metadata-item">
+                              <span>ID</span>
+                              <span>{renderMetadataValue(rawDataCollectionGalleryData.rawDataCollectionSetting.id)}</span>
+                            </div>
+                            <div className="raw-data-metadata-item">
+                              <span>Storage</span>
+                              <span>{renderMetadataValue(rawDataCollectionGalleryData.storageDestination)}</span>
+                            </div>
+                            <div className="raw-data-metadata-item">
+                              <span>Collection Type</span>
+                              <span>{renderMetadataValue(rawDataCollectionGalleryData.rawDataCollectionSetting.collection_type)}</span>
+                            </div>
+                          </div>
+                          <div className="raw-data-metadata-card">
+                            <div className="raw-data-metadata-title">Camera Source</div>
+                            <div className="raw-data-metadata-item">
+                              <span>Name</span>
+                              <span>{renderMetadataValue(rawDataCollectionGalleryData.cameraSource.source_name)}</span>
+                            </div>
+                            <div className="raw-data-metadata-item">
+                              <span>Identifier</span>
+                              <span>{renderMetadataValue(rawDataCollectionGalleryData.cameraSource.camera_identifier)}</span>
+                            </div>
+                            <div className="raw-data-metadata-item">
+                              <span>Location ID</span>
+                              <span>{renderMetadataValue(rawDataCollectionGalleryData.cameraSource.location_id)}</span>
+                            </div>
+                          </div>
+                          <div className="raw-data-metadata-card">
+                            <div className="raw-data-metadata-title">Location</div>
+                            <div className="raw-data-metadata-item">
+                              <span>Name</span>
+                              <span>{renderMetadataValue(rawDataCollectionGalleryData.location?.location_name)}</span>
+                            </div>
+                            <div className="raw-data-metadata-item">
+                              <span>Description</span>
+                              <span>{renderMetadataValue(rawDataCollectionGalleryData.location?.descriptive_location)}</span>
+                            </div>
+                            <div className="raw-data-metadata-item">
+                              <span>Coordinates</span>
+                              <span>
+                                {`${renderMetadataValue(rawDataCollectionGalleryData.location?.latitude)}, ${renderMetadataValue(rawDataCollectionGalleryData.location?.longitude)}`}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {rawDataCollectionGalleryData.imagePaths.length === 0 ? (
+                          <div className="empty-state" style={{ padding: '24px 12px' }}>
+                            No images found in this raw data collection path.
+                          </div>
+                        ) : (
+                          <div className="raw-data-gallery-grid">
+                            {rawDataCollectionGalleryData.imagePaths.map((imagePath) => (
+                              <div key={imagePath} className="raw-data-gallery-item">
+                                <img src={imagePath} alt={imagePath} className="raw-data-gallery-image" />
+                                <div className="raw-data-gallery-path">{imagePath}</div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="empty-state" style={{ padding: '24px 12px' }}>
+                        Select a raw data collection to load its gallery.
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 {rawDataCollectionSettingsCatalogData && rawDataCollectionSettingsCatalogData.lastPage > 1 && (

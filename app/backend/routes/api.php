@@ -27,5 +27,9 @@ Route::middleware(ApiTokenAuth::class)->group(function (): void {
   Route::apiResource('catalog/image-processor-object-classes', ImageProcessorObjectClassController::class);
   Route::apiResource('catalog/prediction-thresholds', PredictionThresholdController::class);
   Route::apiResource('catalog/camera-source-health-logs', CameraSourceHealthLogController::class);
+  Route::get(
+      'catalog/raw-data-collection-settings/{rawDataCollectionSetting}/gallery',
+      [RawDataCollectionSettingController::class, 'gallery']
+  );
   Route::apiResource('catalog/raw-data-collection-settings', RawDataCollectionSettingController::class);
 });

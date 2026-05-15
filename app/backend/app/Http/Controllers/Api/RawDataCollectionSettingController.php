@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\StoreRawDataCollectionSettingRequest;
 use App\Http\Requests\Api\UpdateRawDataCollectionSettingRequest;
+use App\Http\Resources\RawDataCollectionGalleryResource;
 use App\Http\Resources\RawDataCollectionSettingResource;
 use App\Models\RawDataCollectionSetting;
 use App\Services\RawDataCollectionSettingService;
@@ -33,6 +34,13 @@ class RawDataCollectionSettingController extends Controller
     public function show(RawDataCollectionSetting $rawDataCollectionSetting): RawDataCollectionSettingResource
     {
         return new RawDataCollectionSettingResource($rawDataCollectionSetting);
+    }
+
+    public function gallery(RawDataCollectionSetting $rawDataCollectionSetting): RawDataCollectionGalleryResource
+    {
+        return new RawDataCollectionGalleryResource(
+            $this->rawDataCollectionSettingService->buildGalleryPayload($rawDataCollectionSetting)
+        );
     }
 
     public function update(UpdateRawDataCollectionSettingRequest $request, RawDataCollectionSetting $rawDataCollectionSetting): RawDataCollectionSettingResource

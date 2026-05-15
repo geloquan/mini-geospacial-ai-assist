@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\CameraSource;
 use App\Models\RawDataCollectionSetting;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Storage;
 use JsonException;
 use RuntimeException;
@@ -45,6 +46,44 @@ class RawDataCollectionSettingService
     public function delete(RawDataCollectionSetting $rawDataCollectionSetting): void
     {
         $rawDataCollectionSetting->delete();
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function buildGalleryPayload(RawDataCollectionSetting $rawDataCollectionSetting): array
+    {
+        $rawDataCollectionSetting->loadMissing('cameraSource.location');
+
+        $cameraSource = $rawDataCollectionSetting->cameraSource;
+        if (!$cameraSource instanceof CameraSource) {
+            throw new RuntimeException('Unable to load gallery metadata without a valid camera source.');
+        }
+
+        $metadata = $this->buildMetadataPayload($rawDataCollectionSetting, $cameraSource);
+        $storageDestination = Arr::get($metadata, 'raw_data_collection_setting.storage_destination');
+        if (!is_string($storageDestination)) {
+            throw new RuntimeException('Storage destination for raw data collection is invalid.');
+        }
+
+        $imagePaths = collect(Storage::disk('local')->allFiles($storageDestination))
+            ->filter(static function (string $path): bool {
+                $extension = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+
+                return in_array($extension, ['jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp', 'tif', 'tiff'], true);
+            })
+            ->values()
+            ->all();
+
+        return [
+            'raw_data_collection_setting' => Arr::get($metadata, 'raw_data_collection_setting'),
+            'camera_source' => Arr::get($metadata, 'camera_source'),
+            'location' => Arr::get($metadata, 'location'),
+            'gallery' => [
+                'storage_destination' => $storageDestination,
+                'image_paths' => $imagePaths,
+            ],
+        ];
     }
 
     private function syncStorageDestinationAndMetadata(
