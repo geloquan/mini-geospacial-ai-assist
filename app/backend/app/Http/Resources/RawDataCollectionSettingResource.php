@@ -21,7 +21,6 @@ class RawDataCollectionSettingResource extends JsonResource
             'lifecycle_strategy' => $this->lifecycle_strategy,
             'frame_sampling_interval_value' => $this->frame_sampling_interval_value,
             'frame_sampling_interval_unit' => $this->frame_sampling_interval_unit,
-            'session_group_id' => $this->session_group_id,
             'collection_context_notes' => $this->collection_context_notes,
             'collection_type' => $this->collection_type,
             'created_at' => $this->created_at,

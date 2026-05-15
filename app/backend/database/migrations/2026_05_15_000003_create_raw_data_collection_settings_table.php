@@ -20,7 +20,6 @@ return new class extends Migration
             $table->string('lifecycle_strategy');
             $table->unsignedInteger('frame_sampling_interval_value');
             $table->string('frame_sampling_interval_unit');
-            $table->string('session_group_id');
             $table->text('collection_context_notes')->nullable();
             $table->string('collection_type');
             $table->timestamps();

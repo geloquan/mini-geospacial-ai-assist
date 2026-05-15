@@ -14,7 +14,6 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'lifecycle_strategy',
     'frame_sampling_interval_value',
     'frame_sampling_interval_unit',
-    'session_group_id',
     'collection_context_notes',
     'collection_type',
 ])]

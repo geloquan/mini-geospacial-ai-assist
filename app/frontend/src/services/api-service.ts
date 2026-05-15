@@ -92,15 +92,13 @@ export type UpdateImageProcessorInput = Partial<CreateImageProcessorInput>
 
 export type CreateRawDataCollectionSettingInput = {
   cameraSourceId: number
-  storageDestination: string
   maxStorageSizeMb: number
   maxImageCount: number
   lifecycleStrategy: 'stop_on_condition' | 'replace_oldest_on_condition'
   frameSamplingIntervalValue: number
   frameSamplingIntervalUnit: 'frames' | 'seconds'
-  sessionGroupId: string
   collectionContextNotes: string | null
-  collectionType: 'schedule' | 'immediate' | 'on_command'
+  collectionType: 'scheduled_capture' | 'event_triggered_capture' | 'manual_capture'
 }
 
 export type UpdateRawDataCollectionSettingInput = Partial<CreateRawDataCollectionSettingInput>
@@ -332,13 +330,11 @@ export const createRawDataCollectionSetting = async (
     },
     body: JSON.stringify({
       camera_source_id: input.cameraSourceId,
-      storage_destination: input.storageDestination,
       max_storage_size_mb: input.maxStorageSizeMb,
       max_image_count: input.maxImageCount,
       lifecycle_strategy: input.lifecycleStrategy,
       frame_sampling_interval_value: input.frameSamplingIntervalValue,
       frame_sampling_interval_unit: input.frameSamplingIntervalUnit,
-      session_group_id: input.sessionGroupId,
       collection_context_notes: input.collectionContextNotes,
       collection_type: input.collectionType,
     }),
@@ -362,7 +358,6 @@ export const updateRawDataCollectionSetting = async (
       },
       body: JSON.stringify({
         ...(input.cameraSourceId !== undefined ? { camera_source_id: input.cameraSourceId } : {}),
-        ...(input.storageDestination !== undefined ? { storage_destination: input.storageDestination } : {}),
         ...(input.maxStorageSizeMb !== undefined ? { max_storage_size_mb: input.maxStorageSizeMb } : {}),
         ...(input.maxImageCount !== undefined ? { max_image_count: input.maxImageCount } : {}),
         ...(input.lifecycleStrategy !== undefined ? { lifecycle_strategy: input.lifecycleStrategy } : {}),
@@ -372,7 +367,6 @@ export const updateRawDataCollectionSetting = async (
         ...(input.frameSamplingIntervalUnit !== undefined
           ? { frame_sampling_interval_unit: input.frameSamplingIntervalUnit }
           : {}),
-        ...(input.sessionGroupId !== undefined ? { session_group_id: input.sessionGroupId } : {}),
         ...(input.collectionContextNotes !== undefined
           ? { collection_context_notes: input.collectionContextNotes }
           : {}),

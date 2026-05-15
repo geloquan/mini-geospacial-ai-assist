@@ -39,15 +39,13 @@ type CameraSourceFormState = {
 type ImageProcessorFormState = { name: string; modelName: string; modelVersion: string; isActive: '1' | '0' }
 type RawDataCollectionSettingFormState = {
   cameraSourceId: string
-  storageDestination: string
   maxStorageSizeMb: string
   maxImageCount: string
   lifecycleStrategy: 'stop_on_condition' | 'replace_oldest_on_condition'
   frameSamplingIntervalValue: string
   frameSamplingIntervalUnit: 'frames' | 'seconds'
-  sessionGroupId: string
   collectionContextNotes: string
-  collectionType: 'schedule' | 'immediate' | 'on_command'
+  collectionType: 'scheduled_capture' | 'event_triggered_capture' | 'manual_capture'
 }
 
 const INITIAL_LOCATION_FORM: LocationFormState = {
@@ -64,15 +62,13 @@ const INITIAL_CAMERA_SOURCE_FORM: CameraSourceFormState = {
 const INITIAL_IMAGE_PROCESSOR_FORM: ImageProcessorFormState = { name: '', modelName: '', modelVersion: '', isActive: '1' }
 const INITIAL_RAW_DATA_COLLECTION_SETTING_FORM: RawDataCollectionSettingFormState = {
   cameraSourceId: '',
-  storageDestination: '',
   maxStorageSizeMb: '1024',
   maxImageCount: '1000',
   lifecycleStrategy: 'replace_oldest_on_condition',
   frameSamplingIntervalValue: '1',
   frameSamplingIntervalUnit: 'seconds',
-  sessionGroupId: '',
   collectionContextNotes: '',
-  collectionType: 'immediate',
+  collectionType: 'manual_capture',
 }
 
 const CATALOG_TABLES: Array<{ endpoint: CatalogResourceEndpoint; label: string }> = [
@@ -358,7 +354,6 @@ function App() {
           const lifecycleStrategy = row.lifecycle_strategy
           const frameSamplingIntervalValue = row.frame_sampling_interval_value
           const frameSamplingIntervalUnit = row.frame_sampling_interval_unit
-          const sessionGroupId = row.session_group_id
           const collectionContextNotes = row.collection_context_notes
           const collectionType = row.collection_type
 
@@ -396,18 +391,17 @@ function App() {
                 : typeof frameSamplingIntervalValue === 'string'
                   ? Number(frameSamplingIntervalValue)
                   : null,
-            frameSamplingIntervalUnit:
-              frameSamplingIntervalUnit === 'frames' || frameSamplingIntervalUnit === 'seconds'
-                ? frameSamplingIntervalUnit
-                : 'seconds',
-            sessionGroupId: typeof sessionGroupId === 'string' ? sessionGroupId : '',
+             frameSamplingIntervalUnit:
+               frameSamplingIntervalUnit === 'frames' || frameSamplingIntervalUnit === 'seconds'
+                 ? frameSamplingIntervalUnit
+                 : 'seconds',
             collectionContextNotes: typeof collectionContextNotes === 'string' ? collectionContextNotes : '',
             collectionType:
-              collectionType === 'schedule' ||
-              collectionType === 'immediate' ||
-              collectionType === 'on_command'
+              collectionType === 'scheduled_capture' ||
+              collectionType === 'event_triggered_capture' ||
+              collectionType === 'manual_capture'
                 ? collectionType
-                : 'immediate',
+                : 'manual_capture',
           }
         })
         .filter(
@@ -422,9 +416,8 @@ function App() {
             lifecycleStrategy: 'stop_on_condition' | 'replace_oldest_on_condition'
             frameSamplingIntervalValue: number | null
             frameSamplingIntervalUnit: 'frames' | 'seconds'
-            sessionGroupId: string
             collectionContextNotes: string
-            collectionType: 'schedule' | 'immediate' | 'on_command'
+            collectionType: 'scheduled_capture' | 'event_triggered_capture' | 'manual_capture'
           } => rawDataCollectionSetting !== null,
         ),
     [rawDataCollectionSettingsCatalogData?.rows],
@@ -723,7 +716,6 @@ function App() {
     setEditingRawDataCollectionSettingId(selectedRawDataCollectionSetting.id)
     setRawDataCollectionSettingForm({
       cameraSourceId: String(selectedRawDataCollectionSetting.cameraSourceId),
-      storageDestination: selectedRawDataCollectionSetting.storageDestination,
       maxStorageSizeMb:
         selectedRawDataCollectionSetting.maxStorageSizeMb === null
           ? ''
@@ -738,7 +730,6 @@ function App() {
           ? ''
           : String(selectedRawDataCollectionSetting.frameSamplingIntervalValue),
       frameSamplingIntervalUnit: selectedRawDataCollectionSetting.frameSamplingIntervalUnit,
-      sessionGroupId: selectedRawDataCollectionSetting.sessionGroupId,
       collectionContextNotes: selectedRawDataCollectionSetting.collectionContextNotes,
       collectionType: selectedRawDataCollectionSetting.collectionType,
     })
@@ -770,13 +761,11 @@ function App() {
     try {
       const payload = {
         cameraSourceId: Number(rawDataCollectionSettingForm.cameraSourceId),
-        storageDestination: rawDataCollectionSettingForm.storageDestination,
         maxStorageSizeMb: Number(rawDataCollectionSettingForm.maxStorageSizeMb),
         maxImageCount: Number(rawDataCollectionSettingForm.maxImageCount),
         lifecycleStrategy: rawDataCollectionSettingForm.lifecycleStrategy,
         frameSamplingIntervalValue: Number(rawDataCollectionSettingForm.frameSamplingIntervalValue),
         frameSamplingIntervalUnit: rawDataCollectionSettingForm.frameSamplingIntervalUnit,
-        sessionGroupId: rawDataCollectionSettingForm.sessionGroupId,
         collectionContextNotes: rawDataCollectionSettingForm.collectionContextNotes || null,
         collectionType: rawDataCollectionSettingForm.collectionType,
       }
@@ -1508,7 +1497,6 @@ function App() {
                         <th>max_image_count</th>
                         <th>lifecycle_strategy</th>
                         <th>frame_sampling_interval</th>
-                        <th>session_group_id</th>
                         <th>collection_type</th>
                         <th>actions</th>
                       </tr>
@@ -1535,7 +1523,6 @@ function App() {
                               ? <span className="table-null">—</span>
                               : `${rawDataCollectionSetting.frameSamplingIntervalValue} ${rawDataCollectionSetting.frameSamplingIntervalUnit}`}
                           </td>
-                          <td>{rawDataCollectionSetting.sessionGroupId}</td>
                           <td>{rawDataCollectionSetting.collectionType}</td>
                           <td>
                             <button
@@ -1599,16 +1586,9 @@ function App() {
                             <option key={cameraSource.id} value={cameraSource.id}>{cameraSource.sourceName}</option>
                           ))}
                         </select>
-                      </div>
-                      <div className="form-field">
-                        <label className="form-label">Storage Destination<span className="form-required">*</span></label>
-                        <input
-                          className="form-input"
-                          value={rawDataCollectionSettingForm.storageDestination}
-                          onChange={(e) => setRawDataCollectionSettingForm((current) => ({ ...current, storageDestination: e.target.value }))}
-                          placeholder="/data/raw/camera-1/session-a"
-                          required
-                        />
+                        <div style={{ marginTop: 6, fontSize: 11, color: 'var(--text-muted)' }}>
+                          Storage destination is generated automatically by the backend.
+                        </div>
                       </div>
                       <div className="form-field">
                         <label className="form-label">Maximum Storage Size (MB)<span className="form-required">*</span></label>
@@ -1674,16 +1654,6 @@ function App() {
                         </select>
                       </div>
                       <div className="form-field">
-                        <label className="form-label">Session Group ID<span className="form-required">*</span></label>
-                        <input
-                          className="form-input"
-                          value={rawDataCollectionSettingForm.sessionGroupId}
-                          onChange={(e) => setRawDataCollectionSettingForm((current) => ({ ...current, sessionGroupId: e.target.value }))}
-                          placeholder="session_group_2026_05_15_cam_1"
-                          required
-                        />
-                      </div>
-                      <div className="form-field">
                         <label className="form-label">Collection Type<span className="form-required">*</span></label>
                         <select
                           className="form-input"
@@ -1691,12 +1661,12 @@ function App() {
                           onChange={(e) =>
                             setRawDataCollectionSettingForm((current) => ({
                               ...current,
-                              collectionType: e.target.value as 'schedule' | 'immediate' | 'on_command',
+                              collectionType: e.target.value as 'scheduled_capture' | 'event_triggered_capture' | 'manual_capture',
                             }))}
                         >
-                          <option value="schedule">Schedule</option>
-                          <option value="immediate">Immediate</option>
-                          <option value="on_command">On command</option>
+                          <option value="scheduled_capture">Scheduled capture</option>
+                          <option value="event_triggered_capture">Event-triggered capture</option>
+                          <option value="manual_capture">Manual capture</option>
                         </select>
                       </div>
                       <div className="form-field" style={{ gridColumn: '1 / -1' }}>
