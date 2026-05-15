@@ -1,24 +1,29 @@
 import { useMemo, useState } from 'react'
-import type { CSSProperties, FormEvent } from 'react'
+import type { FormEvent } from 'react'
 import { LogIn, LogOut, Database, MapPin, Camera, Cpu, LayoutDashboard, ChevronRight, Activity } from 'lucide-react'
 import { login } from './services/api-service'
 import type { CatalogResourceEndpoint } from './services/api-service'
 import { useDashboardQuery } from './hooks/use-dashboard-query'
 import { useCatalogTableQuery } from './hooks/use-catalog-table-query'
 import { useCreateLocationMutation } from './hooks/use-create-location-mutation'
+import { useUpdateLocationMutation } from './hooks/use-update-location-mutation'
 import { useCreateCameraSourceMutation } from './hooks/use-create-camera-source-mutation'
 import { useUploadImageProcessorModelMutation } from './hooks/use-upload-image-processor-model-mutation'
+import './App.css'
 
 const TOKEN_KEY = 'mini_geospatial_auth_token'
 const CATALOG_PAGE_SIZE = 10
 const EMPTY_CATALOG_ROWS: Record<string, unknown>[] = []
 
 type DashboardView = 'overview' | 'locations' | 'cameraSources' | 'imageProcessors' | 'catalog'
+type LocationEditorMode = 'list' | 'create' | 'edit'
 
 type LocationFormState = {
-  locationName: string; descriptiveLocation: string; cameraIdentifier: string; liveFeedUrl: string
-  cameraVendor: string; cameraModel: string; cameraResolution: string; cameraFps: string; cameraFov: string
-  modelName: string; modelVersion: string; confidenceThreshold: string; iouThreshold: string; latitude: string; longitude: string
+  locationName: string
+  descriptiveLocation: string
+  imagePaths: string
+  latitude: string
+  longitude: string
 }
 type CameraSourceFormState = {
   locationId: string; imageProcessorId: string; sourceName: string; cameraIdentifier: string; liveFeedUrl: string
@@ -27,9 +32,11 @@ type CameraSourceFormState = {
 type ImageProcessorFormState = { name: string; modelName: string; modelVersion: string; isActive: '1' | '0' }
 
 const INITIAL_LOCATION_FORM: LocationFormState = {
-  locationName: '', descriptiveLocation: '', cameraIdentifier: '', liveFeedUrl: '', cameraVendor: '',
-  cameraModel: '', cameraResolution: '', cameraFps: '', cameraFov: '', modelName: '', modelVersion: '',
-  confidenceThreshold: '', iouThreshold: '', latitude: '', longitude: '',
+  locationName: '',
+  descriptiveLocation: '',
+  imagePaths: '',
+  latitude: '',
+  longitude: '',
 }
 const INITIAL_CAMERA_SOURCE_FORM: CameraSourceFormState = {
   locationId: '', imageProcessorId: '', sourceName: '', cameraIdentifier: '', liveFeedUrl: '',
@@ -48,323 +55,6 @@ const CATALOG_TABLES: Array<{ endpoint: CatalogResourceEndpoint; label: string }
   { endpoint: 'catalog/camera-source-health-logs', label: 'Camera Source Health Logs' },
 ]
 
-// ─── Design Tokens ────────────────────────────────────────────────────────────
-const css = `
-  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@300;400;500&display=swap');
-
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-  :root {
-    --bg: #080c14;
-    --surface: #0d1420;
-    --surface-2: #121a2a;
-    --border: rgba(255,255,255,0.07);
-    --border-active: rgba(0,225,200,0.35);
-    --accent: #00e1c8;
-    --accent-dim: rgba(0,225,200,0.12);
-    --accent-glow: rgba(0,225,200,0.25);
-    --text: #e8edf5;
-    --text-muted: #5a6478;
-    --text-dim: #8b97aa;
-    --danger: #ff4d6d;
-    --success: #00d68f;
-    --warning: #ffb547;
-    --font-display: 'Syne', sans-serif;
-    --font-mono: 'IBM Plex Mono', monospace;
-    --radius: 10px;
-    --radius-lg: 16px;
-    --shadow: 0 4px 24px rgba(0,0,0,0.4);
-    --shadow-accent: 0 0 20px rgba(0,225,200,0.15);
-  }
-
-  body { background: var(--bg); color: var(--text); font-family: var(--font-mono); min-height: 100vh; }
-
-  /* Scrollbar */
-  ::-webkit-scrollbar { width: 4px; height: 4px; }
-  ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
-
-  /* Grid noise overlay */
-  .app-root::before {
-    content: '';
-    position: fixed; inset: 0; z-index: 0; pointer-events: none;
-    background-image:
-      linear-gradient(rgba(255,255,255,0.018) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(255,255,255,0.018) 1px, transparent 1px);
-    background-size: 40px 40px;
-  }
-
-  .app-root { position: relative; z-index: 1; }
-
-  /* ── Login ── */
-  .login-wrap {
-    min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px;
-    background: radial-gradient(ellipse 60% 50% at 50% 50%, rgba(0,225,200,0.06) 0%, transparent 70%);
-  }
-  .login-card {
-    width: 100%; max-width: 400px;
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: var(--radius-lg); padding: 40px;
-    box-shadow: var(--shadow), 0 0 60px rgba(0,225,200,0.04);
-    animation: fadeUp 0.4s ease;
-  }
-  .login-logo {
-    display: flex; align-items: center; gap: 10px; margin-bottom: 32px;
-  }
-  .login-logo-dot {
-    width: 10px; height: 10px; border-radius: 50%;
-    background: var(--accent); box-shadow: 0 0 12px var(--accent);
-    animation: pulse 2s infinite;
-  }
-  .login-logo-text {
-    font-family: var(--font-display); font-size: 13px; font-weight: 600;
-    letter-spacing: 0.15em; text-transform: uppercase; color: var(--text-dim);
-  }
-  .login-title {
-    font-family: var(--font-display); font-size: 26px; font-weight: 800;
-    color: var(--text); margin-bottom: 8px; line-height: 1.2;
-  }
-  .login-sub { font-size: 12px; color: var(--text-muted); margin-bottom: 28px; }
-
-  /* ── Layout ── */
-  .layout {
-    display: grid; grid-template-columns: 220px 1fr;
-    min-height: 100vh;
-  }
-
-  /* ── Sidebar ── */
-  .sidebar {
-    background: var(--surface);
-    border-right: 1px solid var(--border);
-    display: flex; flex-direction: column;
-    padding: 24px 0;
-    position: sticky; top: 0; height: 100vh;
-    overflow-y: auto;
-  }
-  .sidebar-logo {
-    padding: 0 20px 24px;
-    border-bottom: 1px solid var(--border);
-    margin-bottom: 20px;
-    display: flex; align-items: center; gap: 10px;
-  }
-  .sidebar-logo-dot {
-    width: 8px; height: 8px; border-radius: 50%;
-    background: var(--accent); box-shadow: 0 0 10px var(--accent);
-    flex-shrink: 0; animation: pulse 2s infinite;
-  }
-  .sidebar-logo-text {
-    font-family: var(--font-display); font-size: 11px; font-weight: 700;
-    letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-dim);
-    line-height: 1.3;
-  }
-  .sidebar-label {
-    font-size: 10px; font-weight: 500; letter-spacing: 0.15em;
-    text-transform: uppercase; color: var(--text-muted);
-    padding: 0 20px; margin-bottom: 6px;
-  }
-  .nav-item {
-    display: flex; align-items: center; gap: 10px;
-    padding: 10px 20px; cursor: pointer;
-    font-size: 12.5px; font-weight: 400; color: var(--text-dim);
-    border: none; background: none; width: 100%; text-align: left;
-    transition: all 0.15s; position: relative; border-left: 2px solid transparent;
-    font-family: var(--font-mono);
-  }
-  .nav-item:hover { color: var(--text); background: rgba(255,255,255,0.03); }
-  .nav-item.active {
-    color: var(--accent); background: var(--accent-dim);
-    border-left-color: var(--accent);
-  }
-  .nav-item.active .nav-icon { color: var(--accent); }
-  .nav-icon { opacity: 0.7; flex-shrink: 0; }
-  .nav-item.active .nav-icon { opacity: 1; }
-
-  .sidebar-bottom { margin-top: auto; padding: 16px 20px 0; border-top: 1px solid var(--border); }
-  .sidebar-status {
-    display: flex; align-items: center; gap: 8px;
-    font-size: 11px; color: var(--text-muted); margin-bottom: 12px;
-  }
-  .status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--success); flex-shrink: 0; }
-  .logout-btn {
-    display: flex; align-items: center; gap: 8px;
-    width: 100%; padding: 9px 12px; border-radius: var(--radius);
-    border: 1px solid rgba(255,77,109,0.25); background: rgba(255,77,109,0.06);
-    color: #ff7b96; font-size: 12px; cursor: pointer;
-    font-family: var(--font-mono); transition: all 0.15s;
-  }
-  .logout-btn:hover { background: rgba(255,77,109,0.12); border-color: rgba(255,77,109,0.4); }
-
-  /* ── Main content ── */
-  .main-content { padding: 32px; display: flex; flex-direction: column; gap: 24px; overflow-x: hidden; }
-
-  /* ── Page Header ── */
-  .page-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 4px; }
-  .page-title {
-    font-family: var(--font-display); font-size: 22px; font-weight: 800; color: var(--text);
-  }
-  .page-breadcrumb {
-    display: flex; align-items: center; gap: 6px;
-    font-size: 11px; color: var(--text-muted); margin-bottom: 4px;
-  }
-  .breadcrumb-sep { opacity: 0.4; }
-
-  /* ── Cards ── */
-  .card {
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: var(--radius-lg); padding: 28px;
-    animation: fadeUp 0.3s ease;
-  }
-  .card-header {
-    display: flex; align-items: center; gap: 12px; margin-bottom: 24px;
-    padding-bottom: 16px; border-bottom: 1px solid var(--border);
-  }
-  .card-icon {
-    width: 36px; height: 36px; border-radius: 8px;
-    background: var(--accent-dim); border: 1px solid var(--border-active);
-    display: flex; align-items: center; justify-content: center; color: var(--accent);
-    flex-shrink: 0;
-  }
-  .card-title {
-    font-family: var(--font-display); font-size: 15px; font-weight: 700; color: var(--text);
-  }
-  .card-subtitle { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
-
-  /* ── Stat grid ── */
-  .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 16px; }
-  .stat-card {
-    background: var(--surface-2); border: 1px solid var(--border);
-    border-radius: var(--radius); padding: 20px; position: relative; overflow: hidden;
-  }
-  .stat-card::before {
-    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
-    background: linear-gradient(90deg, var(--accent), transparent);
-  }
-  .stat-label { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 10px; }
-  .stat-value { font-family: var(--font-display); font-size: 32px; font-weight: 800; color: var(--text); line-height: 1; }
-  .stat-unit { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
-
-  /* ── Module list ── */
-  .module-item {
-    display: flex; align-items: flex-start; gap: 14px;
-    padding: 16px; border-radius: var(--radius);
-    background: var(--surface-2); border: 1px solid var(--border);
-    transition: border-color 0.15s;
-  }
-  .module-item:hover { border-color: var(--border-active); }
-  .module-bullet {
-    width: 6px; height: 6px; border-radius: 50%; background: var(--accent);
-    margin-top: 5px; flex-shrink: 0; box-shadow: 0 0 8px var(--accent);
-  }
-  .module-title { font-size: 13px; font-weight: 500; color: var(--text); margin-bottom: 4px; font-family: var(--font-display); }
-  .module-desc { font-size: 11.5px; color: var(--text-dim); line-height: 1.5; }
-
-  /* ── Form ── */
-  .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
-  .form-section-title {
-    font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-muted);
-    grid-column: 1 / -1; padding-bottom: 8px; border-bottom: 1px solid var(--border);
-    margin-top: 4px;
-  }
-  .form-field { display: flex; flex-direction: column; gap: 6px; }
-  .form-label {
-    font-size: 11px; color: var(--text-dim); letter-spacing: 0.04em;
-    font-family: var(--font-mono);
-  }
-  .form-required { color: var(--accent); margin-left: 2px; }
-  .form-input {
-    background: var(--surface-2); border: 1px solid var(--border);
-    border-radius: var(--radius); color: var(--text);
-    padding: 10px 12px; font-size: 12.5px; font-family: var(--font-mono);
-    outline: none; transition: border-color 0.15s, box-shadow 0.15s;
-    width: 100%;
-  }
-  .form-input:focus {
-    border-color: var(--border-active);
-    box-shadow: 0 0 0 3px var(--accent-dim);
-  }
-  .form-input::placeholder { color: var(--text-muted); }
-  .form-input[type="file"] { padding: 8px 12px; cursor: pointer; }
-  .form-actions { grid-column: 1 / -1; display: flex; align-items: center; gap: 12px; padding-top: 8px; }
-
-  /* ── Buttons ── */
-  .btn {
-    display: inline-flex; align-items: center; gap: 8px;
-    padding: 10px 18px; border-radius: var(--radius);
-    font-size: 12.5px; font-family: var(--font-mono); font-weight: 500;
-    cursor: pointer; border: none; transition: all 0.15s; outline: none;
-  }
-  .btn-primary {
-    background: var(--accent); color: #05100e;
-    box-shadow: 0 0 16px var(--accent-glow);
-  }
-  .btn-primary:hover { background: #1ffcd9; box-shadow: 0 0 24px var(--accent-glow); }
-  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; box-shadow: none; }
-  .btn-ghost {
-    background: var(--surface-2); color: var(--text-dim);
-    border: 1px solid var(--border);
-  }
-  .btn-ghost:hover { color: var(--text); border-color: rgba(255,255,255,0.15); }
-  .btn-ghost:disabled { opacity: 0.4; cursor: not-allowed; }
-
-  /* ── Alerts ── */
-  .alert { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: var(--radius); font-size: 12px; }
-  .alert-error { background: rgba(255,77,109,0.1); border: 1px solid rgba(255,77,109,0.3); color: #ff7b96; }
-  .alert-success { background: rgba(0,214,143,0.1); border: 1px solid rgba(0,214,143,0.3); color: var(--success); }
-
-  /* ── Table ── */
-  .table-wrap { overflow-x: auto; border-radius: var(--radius); border: 1px solid var(--border); }
-  .data-table { width: 100%; border-collapse: collapse; min-width: 700px; font-size: 12px; }
-  .data-table thead { background: var(--surface-2); }
-  .data-table th {
-    text-align: left; padding: 12px 14px;
-    font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase;
-    color: var(--text-muted); font-weight: 500;
-    border-bottom: 1px solid var(--border);
-    white-space: nowrap;
-  }
-  .data-table td {
-    padding: 11px 14px; border-bottom: 1px solid var(--border);
-    color: var(--text-dim); vertical-align: top; font-family: var(--font-mono);
-  }
-  .data-table tbody tr:last-child td { border-bottom: none; }
-  .data-table tbody tr:hover td { background: rgba(255,255,255,0.015); color: var(--text); }
-  .table-null { color: var(--text-muted); font-style: italic; }
-
-  /* ── Catalog toolbar ── */
-  .catalog-toolbar {
-    display: flex; align-items: center; gap: 12px; margin-bottom: 20px;
-    flex-wrap: wrap;
-  }
-  .catalog-select-wrap { flex: 1; min-width: 200px; }
-  .catalog-badge {
-    padding: 4px 10px; border-radius: 20px; font-size: 10px;
-    background: var(--accent-dim); color: var(--accent); border: 1px solid var(--border-active);
-    letter-spacing: 0.06em; white-space: nowrap;
-  }
-
-  /* ── Pagination ── */
-  .pagination { display: flex; align-items: center; gap: 8px; margin-top: 16px; }
-  .page-info { font-size: 11px; color: var(--text-muted); margin-left: 4px; }
-
-  /* ── Empty state ── */
-  .empty-state { text-align: center; padding: 48px 24px; color: var(--text-muted); font-size: 13px; }
-  .empty-icon { margin-bottom: 12px; opacity: 0.3; }
-
-  /* ── Animations ── */
-  @keyframes fadeUp {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-  @keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.4; }
-  }
-`
-
-function StyleTag() {
-  return <style dangerouslySetInnerHTML={{ __html: css }} />
-}
-
 function App() {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
@@ -376,6 +66,9 @@ function App() {
   const [locationForm, setLocationForm] = useState<LocationFormState>(INITIAL_LOCATION_FORM)
   const [locationFormError, setLocationFormError] = useState('')
   const [locationFormSuccess, setLocationFormSuccess] = useState('')
+  const [locationEditorMode, setLocationEditorMode] = useState<LocationEditorMode>('list')
+  const [editingLocationId, setEditingLocationId] = useState<number | null>(null)
+  const [selectedLocationsPage, setSelectedLocationsPage] = useState(1)
 
   const [cameraSourceForm, setCameraSourceForm] = useState<CameraSourceFormState>(INITIAL_CAMERA_SOURCE_FORM)
   const [cameraSourceFormError, setCameraSourceFormError] = useState('')
@@ -391,15 +84,21 @@ function App() {
 
   const { data: dashboardData, error: dashboardError } = useDashboardQuery(token)
   const createLocationMutation = useCreateLocationMutation()
+  const updateLocationMutation = useUpdateLocationMutation()
   const createCameraSourceMutation = useCreateCameraSourceMutation()
   const uploadImageProcessorModelMutation = useUploadImageProcessorModelMutation()
 
+  const {
+    data: locationsCatalogData,
+    error: locationsCatalogError,
+    isFetching: isLocationsFetching,
+  } = useCatalogTableQuery(token, 'catalog/locations', selectedLocationsPage, CATALOG_PAGE_SIZE)
   const { data: catalogData, error: catalogError, isFetching: isCatalogFetching } =
     useCatalogTableQuery(token, selectedCatalogEndpoint, selectedCatalogPage, CATALOG_PAGE_SIZE)
+  const { data: locationOptionsData } = useCatalogTableQuery(token, 'catalog/locations', 1, 100)
   const { data: imageProcessorsData } = useCatalogTableQuery(token, 'catalog/image-processors', 1, 100)
 
   const modules = dashboardData?.modules ?? []
-  const locations = dashboardData?.locations ?? []
   const locationCount = dashboardData?.locationCount ?? 0
 
   const selectedCatalogLabel = CATALOG_TABLES.find((t) => t.endpoint === selectedCatalogEndpoint)?.label ?? 'Catalog'
@@ -417,9 +116,65 @@ function App() {
         .filter((r): r is { id: number; name: string } => r !== null),
     [imageProcessorsData?.rows],
   )
+  const locationRows = useMemo(
+    () =>
+      (locationsCatalogData?.rows ?? [])
+        .map((row) => {
+          const id = row.id
+          const locationName = row.location_name
+          const descriptiveLocation = row.descriptive_location
+          const imagePaths = row.image_paths
+          const latitude = row.latitude
+          const longitude = row.longitude
+
+          if (typeof id !== 'number' || typeof locationName !== 'string') {
+            return null
+          }
+
+          return {
+            id,
+            locationName,
+            descriptiveLocation: typeof descriptiveLocation === 'string' ? descriptiveLocation : '',
+            imagePaths: Array.isArray(imagePaths)
+              ? imagePaths.filter((value): value is string => typeof value === 'string')
+              : [],
+            latitude:
+              typeof latitude === 'number' ? latitude : typeof latitude === 'string' ? Number(latitude) : null,
+            longitude:
+              typeof longitude === 'number' ? longitude : typeof longitude === 'string' ? Number(longitude) : null,
+          }
+        })
+        .filter(
+          (
+            location,
+          ): location is {
+            id: number
+            locationName: string
+            descriptiveLocation: string
+            imagePaths: string[]
+            latitude: number | null
+            longitude: number | null
+          } => location !== null,
+        ),
+    [locationsCatalogData?.rows],
+  )
+  const locationOptions = useMemo(
+    () =>
+      (locationOptionsData?.rows ?? [])
+        .map((row) => {
+          const id = row.id
+          const locationName = row.location_name
+          return typeof id === 'number' && typeof locationName === 'string'
+            ? { id, locationName }
+            : null
+        })
+        .filter((location): location is { id: number; locationName: string } => location !== null),
+    [locationOptionsData?.rows],
+  )
 
   const loadError = dashboardError instanceof Error ? dashboardError.message : ''
   const catalogLoadError = catalogError instanceof Error ? catalogError.message : ''
+  const locationsLoadError = locationsCatalogError instanceof Error ? locationsCatalogError.message : ''
 
   const navItems = [
     { key: 'overview', label: 'Overview', icon: LayoutDashboard },
@@ -431,7 +186,7 @@ function App() {
 
   const viewTitles: Record<DashboardView, string> = {
     overview: 'Platform Overview',
-    locations: 'Create Location',
+    locations: 'Locations',
     cameraSources: 'Create Camera Source',
     imageProcessors: 'Create Image Processor',
     catalog: 'Catalog Browser',
@@ -451,35 +206,67 @@ function App() {
 
   const onLogout = () => { localStorage.removeItem(TOKEN_KEY); setToken(null) }
 
-  const onCreateLocation = async (event: FormEvent<HTMLFormElement>) => {
+  const resetLocationEditor = () => {
+    setLocationEditorMode('list')
+    setEditingLocationId(null)
+    setLocationForm(INITIAL_LOCATION_FORM)
+    setLocationFormError('')
+    setLocationFormSuccess('')
+  }
+
+  const onLocationEdit = (locationId: number) => {
+    const selectedLocation = locationRows.find((location) => location.id === locationId)
+    if (!selectedLocation) {
+      return
+    }
+
+    setLocationEditorMode('edit')
+    setEditingLocationId(selectedLocation.id)
+    setLocationForm({
+      locationName: selectedLocation.locationName,
+      descriptiveLocation: selectedLocation.descriptiveLocation,
+      imagePaths: selectedLocation.imagePaths.join(', '),
+      latitude: selectedLocation.latitude === null ? '' : String(selectedLocation.latitude),
+      longitude: selectedLocation.longitude === null ? '' : String(selectedLocation.longitude),
+    })
+    setLocationFormError('')
+    setLocationFormSuccess('')
+  }
+
+  const onSubmitLocation = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (!token) { setLocationFormError('Please login first.'); return }
+
+    const imagePaths = locationForm.imagePaths
+      .split(',')
+      .map((value) => value.trim())
+      .filter((value) => value.length > 0)
+
     try {
-      await createLocationMutation.mutateAsync({
-        token,
-        payload: {
-          locationName: locationForm.locationName,
-          descriptiveLocation: locationForm.descriptiveLocation,
-          cameraIdentifier: locationForm.cameraIdentifier || null,
-          liveFeedUrl: locationForm.liveFeedUrl || null,
-          cameraSpecification: {
-            vendor: locationForm.cameraVendor || null,
-            model: locationForm.cameraModel || null,
-            resolution: locationForm.cameraResolution || null,
-            fps: locationForm.cameraFps ? Number(locationForm.cameraFps) : null,
-            fieldOfView: locationForm.cameraFov || null,
-          },
-          yoloModelMetadata: {
-            modelName: locationForm.modelName || null,
-            modelVersion: locationForm.modelVersion || null,
-            confidenceThreshold: locationForm.confidenceThreshold ? Number(locationForm.confidenceThreshold) : null,
-            iouThreshold: locationForm.iouThreshold ? Number(locationForm.iouThreshold) : null,
-          },
-          latitude: locationForm.latitude ? Number(locationForm.latitude) : null,
-          longitude: locationForm.longitude ? Number(locationForm.longitude) : null,
-        },
-      })
-      setLocationForm(INITIAL_LOCATION_FORM); setLocationFormError(''); setLocationFormSuccess('Location created successfully.')
+      const payload = {
+        locationName: locationForm.locationName,
+        descriptiveLocation: locationForm.descriptiveLocation || null,
+        imagePaths,
+        latitude: locationForm.latitude ? Number(locationForm.latitude) : null,
+        longitude: locationForm.longitude ? Number(locationForm.longitude) : null,
+      }
+
+      if (locationEditorMode === 'edit' && editingLocationId !== null) {
+        await updateLocationMutation.mutateAsync({
+          token,
+          locationId: editingLocationId,
+          payload,
+        })
+        setLocationFormSuccess('Location updated successfully.')
+      } else {
+        await createLocationMutation.mutateAsync({ token, payload })
+        setLocationFormSuccess('Location created successfully.')
+      }
+
+      setLocationForm(INITIAL_LOCATION_FORM)
+      setLocationFormError('')
+      setEditingLocationId(null)
+      setLocationEditorMode('list')
     } catch (error) { setLocationFormError(error instanceof Error ? error.message : 'Unable to create location.'); setLocationFormSuccess('') }
   }
 
@@ -532,7 +319,6 @@ function App() {
   if (token === null) {
     return (
       <>
-        <StyleTag />
         <div className="app-root">
           <div className="login-wrap">
             <div className="login-card">
@@ -567,7 +353,6 @@ function App() {
   // ── Dashboard ─────────────────────────────────────────────────────────────
   return (
     <>
-      <StyleTag />
       <div className="app-root">
         <div className="layout">
 
@@ -678,95 +463,150 @@ function App() {
               </div>
             )}
 
-            {/* ── Create Location ── */}
+            {/* ── Locations ── */}
             {activeView === 'locations' && (
               <div className="card">
                 <div className="card-header">
                   <div className="card-icon"><MapPin size={16} /></div>
                   <div>
-                    <div className="card-title">Camera Placement Location</div>
-                    <div className="card-subtitle">Register a new monitored site</div>
+                    <div className="card-title">Camera Placement Locations</div>
+                    <div className="card-subtitle">Browse and edit monitored sites</div>
                   </div>
                 </div>
 
-                <form onSubmit={onCreateLocation} style={{ display: 'grid', gap: 16 }}>
-                  <div className="form-grid">
-                    <div className="form-section-title">Basic Information</div>
-                    <div className="form-field">
-                      <label className="form-label">Location Name<span className="form-required">*</span></label>
-                      <input className="form-input" value={locationForm.locationName} onChange={(e) => setLocationForm((c) => ({ ...c, locationName: e.target.value }))} placeholder="e.g. Building A — North" required />
-                    </div>
-                    <div className="form-field">
-                      <label className="form-label">Descriptive Location<span className="form-required">*</span></label>
-                      <input className="form-input" value={locationForm.descriptiveLocation} onChange={(e) => setLocationForm((c) => ({ ...c, descriptiveLocation: e.target.value }))} placeholder="e.g. Main entrance lobby" required />
-                    </div>
-                    <div className="form-field">
-                      <label className="form-label">Latitude</label>
-                      <input className="form-input" type="number" min={-90} max={90} step="0.0000001" value={locationForm.latitude} onChange={(e) => setLocationForm((c) => ({ ...c, latitude: e.target.value }))} placeholder="10.7202" />
-                    </div>
-                    <div className="form-field">
-                      <label className="form-label">Longitude</label>
-                      <input className="form-input" type="number" min={-180} max={180} step="0.0000001" value={locationForm.longitude} onChange={(e) => setLocationForm((c) => ({ ...c, longitude: e.target.value }))} placeholder="122.5621" />
-                    </div>
+                <div className="catalog-toolbar">
+                  <button
+                    className="btn btn-primary"
+                    type="button"
+                    onClick={() => {
+                      setLocationEditorMode('create')
+                      setEditingLocationId(null)
+                      setLocationForm(INITIAL_LOCATION_FORM)
+                      setLocationFormError('')
+                      setLocationFormSuccess('')
+                    }}
+                  >
+                    <MapPin size={13} />
+                    Create Location
+                  </button>
+                  {isLocationsFetching && <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Loading...</div>}
+                </div>
 
-                    <div className="form-section-title">Camera Setup</div>
-                    <div className="form-field">
-                      <label className="form-label">Camera Identifier</label>
-                      <input className="form-input" value={locationForm.cameraIdentifier} onChange={(e) => setLocationForm((c) => ({ ...c, cameraIdentifier: e.target.value }))} placeholder="cam-001" />
-                    </div>
-                    <div className="form-field">
-                      <label className="form-label">Live Feed URL</label>
-                      <input className="form-input" type="url" value={locationForm.liveFeedUrl} onChange={(e) => setLocationForm((c) => ({ ...c, liveFeedUrl: e.target.value }))} placeholder="rtsp://..." />
-                    </div>
-                    <div className="form-field">
-                      <label className="form-label">Vendor</label>
-                      <input className="form-input" value={locationForm.cameraVendor} onChange={(e) => setLocationForm((c) => ({ ...c, cameraVendor: e.target.value }))} placeholder="Hikvision" />
-                    </div>
-                    <div className="form-field">
-                      <label className="form-label">Model</label>
-                      <input className="form-input" value={locationForm.cameraModel} onChange={(e) => setLocationForm((c) => ({ ...c, cameraModel: e.target.value }))} placeholder="DS-2CD2143G2" />
-                    </div>
-                    <div className="form-field">
-                      <label className="form-label">Resolution</label>
-                      <input className="form-input" value={locationForm.cameraResolution} onChange={(e) => setLocationForm((c) => ({ ...c, cameraResolution: e.target.value }))} placeholder="1920x1080" />
-                    </div>
-                    <div className="form-field">
-                      <label className="form-label">FPS</label>
-                      <input className="form-input" type="number" min={1} max={240} value={locationForm.cameraFps} onChange={(e) => setLocationForm((c) => ({ ...c, cameraFps: e.target.value }))} placeholder="30" />
-                    </div>
-                    <div className="form-field">
-                      <label className="form-label">Field of View</label>
-                      <input className="form-input" value={locationForm.cameraFov} onChange={(e) => setLocationForm((c) => ({ ...c, cameraFov: e.target.value }))} placeholder="120°" />
-                    </div>
+                {locationsLoadError && <div className="alert alert-error" style={{ marginBottom: 16 }}>{locationsLoadError}</div>}
 
-                    <div className="form-section-title">YOLO Model Metadata</div>
-                    <div className="form-field">
-                      <label className="form-label">Model Name</label>
-                      <input className="form-input" value={locationForm.modelName} onChange={(e) => setLocationForm((c) => ({ ...c, modelName: e.target.value }))} placeholder="yolov8n" />
+                <div className="table-wrap">
+                  {locationRows.length === 0 ? (
+                    <div className="empty-state">
+                      <div className="empty-icon"><Database size={28} /></div>
+                      {isLocationsFetching ? 'Fetching locations...' : 'No locations available.'}
                     </div>
-                    <div className="form-field">
-                      <label className="form-label">Model Version</label>
-                      <input className="form-input" value={locationForm.modelVersion} onChange={(e) => setLocationForm((c) => ({ ...c, modelVersion: e.target.value }))} placeholder="8.0.0" />
-                    </div>
-                    <div className="form-field">
-                      <label className="form-label">Confidence Threshold</label>
-                      <input className="form-input" type="number" min={0} max={1} step="0.01" value={locationForm.confidenceThreshold} onChange={(e) => setLocationForm((c) => ({ ...c, confidenceThreshold: e.target.value }))} placeholder="0.50" />
-                    </div>
-                    <div className="form-field">
-                      <label className="form-label">IoU Threshold</label>
-                      <input className="form-input" type="number" min={0} max={1} step="0.01" value={locationForm.iouThreshold} onChange={(e) => setLocationForm((c) => ({ ...c, iouThreshold: e.target.value }))} placeholder="0.45" />
-                    </div>
+                  ) : (
+                    <table className="data-table">
+                      <thead>
+                      <tr>
+                        <th>id</th>
+                        <th>location_name</th>
+                        <th>descriptive_location</th>
+                        <th>image_paths</th>
+                        <th>latitude</th>
+                        <th>longitude</th>
+                        <th>actions</th>
+                      </tr>
+                      </thead>
+                      <tbody>
+                      {locationRows.map((location) => (
+                        <tr key={location.id}>
+                          <td>{location.id}</td>
+                          <td>{location.locationName}</td>
+                          <td>{location.descriptiveLocation || <span className="table-null">—</span>}</td>
+                          <td>{location.imagePaths.length === 0 ? <span className="table-null">—</span> : location.imagePaths.join(', ')}</td>
+                          <td>{location.latitude === null ? <span className="table-null">—</span> : String(location.latitude)}</td>
+                          <td>{location.longitude === null ? <span className="table-null">—</span> : String(location.longitude)}</td>
+                          <td>
+                            <button className="btn btn-ghost" type="button" onClick={() => onLocationEdit(location.id)}>
+                              Edit
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
 
-                    <div className="form-actions">
-                      <button className="btn btn-primary" type="submit" disabled={createLocationMutation.isPending}>
-                        <MapPin size={13} />
-                        {createLocationMutation.isPending ? 'Creating...' : 'Create Location'}
-                      </button>
-                      {locationFormSuccess && <div className="alert alert-success" style={{ padding: '6px 12px' }}>{locationFormSuccess}</div>}
-                    </div>
+                {locationsCatalogData && locationsCatalogData.lastPage > 1 && (
+                  <div className="pagination">
+                    <button
+                      className="btn btn-ghost"
+                      onClick={() => setSelectedLocationsPage((current) => Math.max(1, current - 1))}
+                      disabled={locationsCatalogData.currentPage <= 1 || isLocationsFetching}
+                    >
+                      ← Prev
+                    </button>
+                    <span className="page-info">Page {locationsCatalogData.currentPage} of {locationsCatalogData.lastPage}</span>
+                    <button
+                      className="btn btn-ghost"
+                      onClick={() =>
+                        setSelectedLocationsPage((current) =>
+                          Math.min(locationsCatalogData.lastPage, current + 1),
+                        )}
+                      disabled={locationsCatalogData.currentPage >= locationsCatalogData.lastPage || isLocationsFetching}
+                    >
+                      Next →
+                    </button>
                   </div>
-                  {locationFormError && <div className="alert alert-error">{locationFormError}</div>}
-                </form>
+                )}
+
+                {locationEditorMode !== 'list' && (
+                  <form onSubmit={onSubmitLocation} style={{ display: 'grid', gap: 16, marginTop: 20 }}>
+                    <div className="form-grid">
+                      <div className="form-section-title">
+                        {locationEditorMode === 'edit' ? 'Edit Location' : 'Create Location'}
+                      </div>
+                      <div className="form-field">
+                        <label className="form-label">Location Name<span className="form-required">*</span></label>
+                        <input className="form-input" value={locationForm.locationName} onChange={(e) => setLocationForm((current) => ({ ...current, locationName: e.target.value }))} required />
+                      </div>
+                      <div className="form-field">
+                        <label className="form-label">Descriptive Location</label>
+                        <input className="form-input" value={locationForm.descriptiveLocation} onChange={(e) => setLocationForm((current) => ({ ...current, descriptiveLocation: e.target.value }))} />
+                      </div>
+                      <div className="form-field">
+                        <label className="form-label">Image Paths (comma separated)</label>
+                        <input className="form-input" value={locationForm.imagePaths} onChange={(e) => setLocationForm((current) => ({ ...current, imagePaths: e.target.value }))} placeholder="images/location-1.jpg, images/location-2.jpg" />
+                      </div>
+                      <div className="form-field">
+                        <label className="form-label">Latitude</label>
+                        <input className="form-input" type="number" min={-90} max={90} step="0.0000001" value={locationForm.latitude} onChange={(e) => setLocationForm((current) => ({ ...current, latitude: e.target.value }))} />
+                      </div>
+                      <div className="form-field">
+                        <label className="form-label">Longitude</label>
+                        <input className="form-input" type="number" min={-180} max={180} step="0.0000001" value={locationForm.longitude} onChange={(e) => setLocationForm((current) => ({ ...current, longitude: e.target.value }))} />
+                      </div>
+                      <div className="form-actions">
+                        <button
+                          className="btn btn-primary"
+                          type="submit"
+                          disabled={createLocationMutation.isPending || updateLocationMutation.isPending}
+                        >
+                          <MapPin size={13} />
+                          {locationEditorMode === 'edit'
+                            ? updateLocationMutation.isPending
+                              ? 'Saving...'
+                              : 'Save Changes'
+                            : createLocationMutation.isPending
+                              ? 'Creating...'
+                              : 'Create Location'}
+                        </button>
+                        <button className="btn btn-ghost" type="button" onClick={resetLocationEditor}>
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                    {locationFormSuccess && <div className="alert alert-success">{locationFormSuccess}</div>}
+                    {locationFormError && <div className="alert alert-error">{locationFormError}</div>}
+                  </form>
+                )}
               </div>
             )}
 
@@ -787,7 +627,7 @@ function App() {
                       <label className="form-label">Location<span className="form-required">*</span></label>
                       <select className="form-input" value={cameraSourceForm.locationId} onChange={(e) => setCameraSourceForm((c) => ({ ...c, locationId: e.target.value }))} required>
                         <option value="">Select a location</option>
-                        {locations.map((loc) => <option key={loc.id} value={loc.id}>{loc.locationName}</option>)}
+                        {locationOptions.map((loc) => <option key={loc.id} value={loc.id}>{loc.locationName}</option>)}
                       </select>
                     </div>
                     <div className="form-field">

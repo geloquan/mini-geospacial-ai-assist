@@ -39,10 +39,11 @@ npm run backend:assets:build
 ## API and UI Baseline
 
 - Login-only authentication (single user type) via `POST /api/login`
-- Bearer-token protected dashboard and camera location APIs:
+- Bearer-token protected dashboard and catalog APIs:
   - `GET /api/dashboard`
-  - `GET /api/locations`
-  - `POST /api/locations`
+  - `GET /api/catalog/locations`
+  - `POST /api/catalog/locations`
+  - `PUT /api/catalog/locations/{location}`
 - Dashboard modules focus on:
   - Live feed configuration
   - Camera specification

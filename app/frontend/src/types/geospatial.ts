@@ -4,47 +4,21 @@ export type ModuleItem = {
   description: string
 }
 
-export type CameraLocation = {
+export type Location = {
   id: number
   locationName: string
   descriptiveLocation: string
-  cameraIdentifier: string | null
-  liveFeedUrl: string | null
-  cameraSpecification: {
-    vendor: string | null
-    model: string | null
-    resolution: string | null
-    fps: number | null
-    fieldOfView: string | null
-  } | null
-  yoloModelMetadata: {
-    modelName: string | null
-    modelVersion: string | null
-    confidenceThreshold: number | null
-    iouThreshold: number | null
-  } | null
+  imagePaths: string[]
   latitude: number | null
   longitude: number | null
 }
 
-export type CreateCameraLocationInput = {
+export type CreateLocationInput = {
   locationName: string
-  descriptiveLocation: string
-  cameraIdentifier: string | null
-  liveFeedUrl: string | null
-  cameraSpecification: {
-    vendor: string | null
-    model: string | null
-    resolution: string | null
-    fps: number | null
-    fieldOfView: string | null
-  } | null
-  yoloModelMetadata: {
-    modelName: string | null
-    modelVersion: string | null
-    confidenceThreshold: number | null
-    iouThreshold: number | null
-  } | null
+  descriptiveLocation: string | null
+  imagePaths: string[]
   latitude: number | null
   longitude: number | null
 }
+
+export type UpdateLocationInput = Partial<CreateLocationInput>

@@ -3,7 +3,6 @@
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CameraSourceController;
 use App\Http\Controllers\Api\CameraSourceHealthLogController;
-use App\Http\Controllers\Api\CameraLocationController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\ImageProcessorController;
 use App\Http\Controllers\Api\ImageProcessorObjectClassController;
@@ -18,8 +17,6 @@ Route::post('/login', [AuthController::class, 'login']);
 
 Route::middleware(ApiTokenAuth::class)->group(function (): void {
     Route::get('/dashboard', [DashboardController::class, 'index']);
-    Route::get('/locations', [CameraLocationController::class, 'index']);
-    Route::post('/locations', [CameraLocationController::class, 'store']);
 
     Route::apiResource('catalog/locations', LocationController::class);
     Route::apiResource('catalog/camera-sources', CameraSourceController::class);

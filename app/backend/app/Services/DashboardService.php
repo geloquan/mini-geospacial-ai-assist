@@ -2,7 +2,7 @@
 
 namespace App\Services;
 
-use App\Models\CameraLocation;
+use App\Models\Location;
 use App\Models\User;
 
 class DashboardService
@@ -37,7 +37,7 @@ class DashboardService
             ],
             'summary' => [
                 'username' => $user->name,
-                'location_count' => CameraLocation::query()->count(),
+                'location_count' => Location::query()->count(),
             ],
         ];
     }
