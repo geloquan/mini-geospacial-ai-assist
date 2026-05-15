@@ -561,7 +561,7 @@ function App() {
             <div className="login-card">
               <div className="login-logo">
                 <div className="login-logo-dot" />
-                <span className="login-logo-text">Geospatial AI · Platform</span>
+                <span className="login-logo-text">Mini-Geospatial AI Assist · Platform</span>
               </div>
               <h1 className="login-title">Welcome back</h1>
               <p className="login-sub">Sign in to access the control dashboard</p>
@@ -597,7 +597,7 @@ function App() {
           <aside className="sidebar">
             <div className="sidebar-logo">
               <div className="sidebar-logo-dot" />
-              <span className="sidebar-logo-text">Geospatial AI<br />Control Center</span>
+              <span className="sidebar-logo-text">Mini-Geospatial AI Assist<br />Control Center</span>
             </div>
 
             <div style={{ padding: '0 0 16px' }}>
