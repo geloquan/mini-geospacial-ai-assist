@@ -391,10 +391,10 @@ function App() {
                 : typeof frameSamplingIntervalValue === 'string'
                   ? Number(frameSamplingIntervalValue)
                   : null,
-             frameSamplingIntervalUnit:
-               frameSamplingIntervalUnit === 'frames' || frameSamplingIntervalUnit === 'seconds'
-                 ? frameSamplingIntervalUnit
-                 : 'seconds',
+            frameSamplingIntervalUnit:
+              frameSamplingIntervalUnit === 'frames' || frameSamplingIntervalUnit === 'seconds'
+                ? frameSamplingIntervalUnit
+                : 'seconds',
             collectionContextNotes: typeof collectionContextNotes === 'string' ? collectionContextNotes : '',
             collectionType:
               collectionType === 'scheduled_capture' ||

@@ -6,6 +6,8 @@ use App\Models\CameraSource;
 use App\Models\RawDataCollectionSetting;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Storage;
+use JsonException;
+use RuntimeException;
 
 class RawDataCollectionSettingService
 {
@@ -24,8 +26,6 @@ class RawDataCollectionSettingService
      */
     public function create(array $data): RawDataCollectionSetting
     {
-        unset($data['storage_destination']);
-
         $rawDataCollectionSetting = RawDataCollectionSetting::query()->create($data);
 
         return $this->syncStorageDestinationAndMetadata($rawDataCollectionSetting);
@@ -36,8 +36,6 @@ class RawDataCollectionSettingService
      */
     public function update(RawDataCollectionSetting $rawDataCollectionSetting, array $data): RawDataCollectionSetting
     {
-        unset($data['storage_destination']);
-
         $rawDataCollectionSetting->fill($data);
         $rawDataCollectionSetting->save();
 
@@ -56,7 +54,7 @@ class RawDataCollectionSettingService
 
         $cameraSource = $rawDataCollectionSetting->cameraSource;
         if (!$cameraSource instanceof CameraSource) {
-            return $rawDataCollectionSetting;
+            throw new RuntimeException('Unable to generate metadata without a valid camera source.');
         }
 
         $storageDestination = sprintf(
@@ -69,15 +67,20 @@ class RawDataCollectionSettingService
         $rawDataCollectionSetting->storage_destination = $storageDestination;
         $rawDataCollectionSetting->save();
 
-        Storage::disk('local')->put(
-            $metadataPath,
-            json_encode(
+        try {
+            $encodedMetadata = json_encode(
                 $this->buildMetadataPayload($rawDataCollectionSetting, $cameraSource),
                 JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR
-            )
-        );
+            );
+        } catch (JsonException $exception) {
+            throw new RuntimeException('Failed to encode raw data collection metadata.', 0, $exception);
+        }
 
-        return $rawDataCollectionSetting->fresh() ?? $rawDataCollectionSetting;
+        if (!Storage::disk('local')->put($metadataPath, $encodedMetadata)) {
+            throw new RuntimeException('Failed to write raw data collection metadata file.');
+        }
+
+        return $rawDataCollectionSetting;
     }
 
     /**

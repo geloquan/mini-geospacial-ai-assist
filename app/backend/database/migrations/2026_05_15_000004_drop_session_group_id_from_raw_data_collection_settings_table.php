@@ -30,7 +30,7 @@ return new class extends Migration
         }
 
         Schema::table('raw_data_collection_settings', function (Blueprint $table): void {
-            $table->string('session_group_id')->default('');
+            $table->string('session_group_id')->nullable();
         });
     }
 };
