@@ -140,9 +140,48 @@ export type CatalogTablePayload = {
 
 type RawDataCollectionGalleryApiResponse = {
   data: {
-    raw_data_collection_setting: Record<string, unknown>
-    camera_source: Record<string, unknown>
-    location: Record<string, unknown> | null
+    raw_data_collection_setting: {
+      id: number
+      camera_source_id: number
+      storage_destination: string
+      max_storage_size_mb: number
+      max_image_count: number
+      lifecycle_strategy: 'stop_on_condition' | 'replace_oldest_on_condition'
+      frame_sampling_interval_value: number
+      frame_sampling_interval_unit: 'frames' | 'seconds'
+      collection_context_notes: string | null
+      collection_type: 'scheduled_capture' | 'event_triggered_capture' | 'manual_capture'
+      created_at: string | null
+      updated_at: string | null
+    }
+    camera_source: {
+      id: number
+      location_id: number
+      image_processor_id: number | null
+      source_name: string
+      camera_identifier: string | null
+      live_feed_url: string | null
+      camera_specification: {
+        vendor: string | null
+        model: string | null
+        resolution: string | null
+        fps: number | null
+        field_of_view: string | null
+      } | null
+      is_active: boolean
+      created_at: string | null
+      updated_at: string | null
+    }
+    location: {
+      id: number
+      location_name: string
+      descriptive_location: string | null
+      image_paths: string[] | null
+      latitude: number | string | null
+      longitude: number | string | null
+      created_at: string | null
+      updated_at: string | null
+    } | null
     gallery: {
       storage_destination: string
       image_paths: string[]
@@ -150,10 +189,55 @@ type RawDataCollectionGalleryApiResponse = {
   }
 }
 
+export type RawDataCollectionGalleryRawDataCollectionSetting = {
+  id: number
+  cameraSourceId: number
+  storageDestination: string
+  maxStorageSizeMb: number
+  maxImageCount: number
+  lifecycleStrategy: 'stop_on_condition' | 'replace_oldest_on_condition'
+  frameSamplingIntervalValue: number
+  frameSamplingIntervalUnit: 'frames' | 'seconds'
+  collectionContextNotes: string | null
+  collectionType: 'scheduled_capture' | 'event_triggered_capture' | 'manual_capture'
+  createdAt: string | null
+  updatedAt: string | null
+}
+
+export type RawDataCollectionGalleryCameraSource = {
+  id: number
+  locationId: number
+  imageProcessorId: number | null
+  sourceName: string
+  cameraIdentifier: string | null
+  liveFeedUrl: string | null
+  cameraSpecification: {
+    vendor: string | null
+    model: string | null
+    resolution: string | null
+    fps: number | null
+    fieldOfView: string | null
+  } | null
+  isActive: boolean
+  createdAt: string | null
+  updatedAt: string | null
+}
+
+export type RawDataCollectionGalleryLocation = {
+  id: number
+  locationName: string
+  descriptiveLocation: string | null
+  imagePaths: string[]
+  latitude: number | null
+  longitude: number | null
+  createdAt: string | null
+  updatedAt: string | null
+}
+
 export type RawDataCollectionGalleryPayload = {
-  rawDataCollectionSetting: Record<string, unknown>
-  cameraSource: Record<string, unknown>
-  location: Record<string, unknown> | null
+  rawDataCollectionSetting: RawDataCollectionGalleryRawDataCollectionSetting
+  cameraSource: RawDataCollectionGalleryCameraSource
+  location: RawDataCollectionGalleryLocation | null
   storageDestination: string
   imagePaths: string[]
 }
@@ -530,9 +614,52 @@ export const loadRawDataCollectionGallery = async (
   )
 
   return {
-    rawDataCollectionSetting: payload.data.raw_data_collection_setting,
-    cameraSource: payload.data.camera_source,
-    location: payload.data.location,
+    rawDataCollectionSetting: {
+      id: payload.data.raw_data_collection_setting.id,
+      cameraSourceId: payload.data.raw_data_collection_setting.camera_source_id,
+      storageDestination: payload.data.raw_data_collection_setting.storage_destination,
+      maxStorageSizeMb: payload.data.raw_data_collection_setting.max_storage_size_mb,
+      maxImageCount: payload.data.raw_data_collection_setting.max_image_count,
+      lifecycleStrategy: payload.data.raw_data_collection_setting.lifecycle_strategy,
+      frameSamplingIntervalValue: payload.data.raw_data_collection_setting.frame_sampling_interval_value,
+      frameSamplingIntervalUnit: payload.data.raw_data_collection_setting.frame_sampling_interval_unit,
+      collectionContextNotes: payload.data.raw_data_collection_setting.collection_context_notes,
+      collectionType: payload.data.raw_data_collection_setting.collection_type,
+      createdAt: payload.data.raw_data_collection_setting.created_at,
+      updatedAt: payload.data.raw_data_collection_setting.updated_at,
+    },
+    cameraSource: {
+      id: payload.data.camera_source.id,
+      locationId: payload.data.camera_source.location_id,
+      imageProcessorId: payload.data.camera_source.image_processor_id,
+      sourceName: payload.data.camera_source.source_name,
+      cameraIdentifier: payload.data.camera_source.camera_identifier,
+      liveFeedUrl: payload.data.camera_source.live_feed_url,
+      cameraSpecification: payload.data.camera_source.camera_specification === null
+        ? null
+        : {
+            vendor: payload.data.camera_source.camera_specification.vendor,
+            model: payload.data.camera_source.camera_specification.model,
+            resolution: payload.data.camera_source.camera_specification.resolution,
+            fps: payload.data.camera_source.camera_specification.fps,
+            fieldOfView: payload.data.camera_source.camera_specification.field_of_view,
+          },
+      isActive: payload.data.camera_source.is_active,
+      createdAt: payload.data.camera_source.created_at,
+      updatedAt: payload.data.camera_source.updated_at,
+    },
+    location: payload.data.location === null
+      ? null
+      : {
+          id: payload.data.location.id,
+          locationName: payload.data.location.location_name,
+          descriptiveLocation: payload.data.location.descriptive_location,
+          imagePaths: Array.isArray(payload.data.location.image_paths) ? payload.data.location.image_paths : [],
+          latitude: toNullableNumber(payload.data.location.latitude),
+          longitude: toNullableNumber(payload.data.location.longitude),
+          createdAt: payload.data.location.created_at,
+          updatedAt: payload.data.location.updated_at,
+        },
     storageDestination: payload.data.gallery.storage_destination,
     imagePaths: Array.isArray(payload.data.gallery.image_paths) ? payload.data.gallery.image_paths : [],
   }

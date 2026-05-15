@@ -1598,33 +1598,33 @@ function App() {
                             </div>
                             <div className="raw-data-metadata-item">
                               <span>Collection Type</span>
-                              <span>{renderMetadataValue(rawDataCollectionGalleryData.rawDataCollectionSetting.collection_type)}</span>
+                              <span>{renderMetadataValue(rawDataCollectionGalleryData.rawDataCollectionSetting.collectionType)}</span>
                             </div>
                           </div>
                           <div className="raw-data-metadata-card">
                             <div className="raw-data-metadata-title">Camera Source</div>
                             <div className="raw-data-metadata-item">
                               <span>Name</span>
-                              <span>{renderMetadataValue(rawDataCollectionGalleryData.cameraSource.source_name)}</span>
+                              <span>{renderMetadataValue(rawDataCollectionGalleryData.cameraSource.sourceName)}</span>
                             </div>
                             <div className="raw-data-metadata-item">
                               <span>Identifier</span>
-                              <span>{renderMetadataValue(rawDataCollectionGalleryData.cameraSource.camera_identifier)}</span>
+                              <span>{renderMetadataValue(rawDataCollectionGalleryData.cameraSource.cameraIdentifier)}</span>
                             </div>
                             <div className="raw-data-metadata-item">
                               <span>Location ID</span>
-                              <span>{renderMetadataValue(rawDataCollectionGalleryData.cameraSource.location_id)}</span>
+                              <span>{renderMetadataValue(rawDataCollectionGalleryData.cameraSource.locationId)}</span>
                             </div>
                           </div>
                           <div className="raw-data-metadata-card">
                             <div className="raw-data-metadata-title">Location</div>
                             <div className="raw-data-metadata-item">
                               <span>Name</span>
-                              <span>{renderMetadataValue(rawDataCollectionGalleryData.location?.location_name)}</span>
+                              <span>{renderMetadataValue(rawDataCollectionGalleryData.location?.locationName)}</span>
                             </div>
                             <div className="raw-data-metadata-item">
                               <span>Description</span>
-                              <span>{renderMetadataValue(rawDataCollectionGalleryData.location?.descriptive_location)}</span>
+                              <span>{renderMetadataValue(rawDataCollectionGalleryData.location?.descriptiveLocation)}</span>
                             </div>
                             <div className="raw-data-metadata-item">
                               <span>Coordinates</span>
