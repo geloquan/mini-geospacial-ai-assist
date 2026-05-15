@@ -60,4 +60,12 @@ class CameraSource extends Model
     {
         return $this->hasMany(CameraSourceHealthLog::class);
     }
+
+    /**
+     * @return HasMany<RawDataCollectionSetting, $this>
+     */
+    public function rawDataCollectionSettings(): HasMany
+    {
+        return $this->hasMany(RawDataCollectionSetting::class);
+    }
 }

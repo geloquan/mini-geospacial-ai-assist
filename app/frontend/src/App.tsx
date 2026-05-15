@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
-import { LogIn, LogOut, Database, MapPin, Camera, Cpu, LayoutDashboard, ChevronRight, Activity } from 'lucide-react'
+import { LogIn, LogOut, Database, MapPin, Camera, Cpu, LayoutDashboard, ChevronRight, Activity, HardDrive } from 'lucide-react'
 import { login } from './services/api-service'
 import type { CatalogResourceEndpoint } from './services/api-service'
 import { useDashboardQuery } from './hooks/use-dashboard-query'
@@ -11,16 +11,19 @@ import { useCreateCameraSourceMutation } from './hooks/use-create-camera-source-
 import { useUpdateCameraSourceMutation } from './hooks/use-update-camera-source-mutation'
 import { useUploadImageProcessorModelMutation } from './hooks/use-upload-image-processor-model-mutation'
 import { useUpdateImageProcessorMutation } from './hooks/use-update-image-processor-mutation'
+import { useCreateRawDataCollectionSettingMutation } from './hooks/use-create-raw-data-collection-setting-mutation'
+import { useUpdateRawDataCollectionSettingMutation } from './hooks/use-update-raw-data-collection-setting-mutation'
 import './App.css'
 
 const TOKEN_KEY = 'mini_geospatial_auth_token'
 const CATALOG_PAGE_SIZE = 10
 const EMPTY_CATALOG_ROWS: Record<string, unknown>[] = []
 
-type DashboardView = 'overview' | 'locations' | 'cameraSources' | 'imageProcessors' | 'catalog'
+type DashboardView = 'overview' | 'locations' | 'cameraSources' | 'imageProcessors' | 'rawDataCollectionSettings' | 'catalog'
 type LocationEditorMode = 'list' | 'create' | 'edit'
 type CameraSourceEditorMode = 'list' | 'create' | 'edit'
 type ImageProcessorEditorMode = 'list' | 'create' | 'edit'
+type RawDataCollectionSettingEditorMode = 'list' | 'create' | 'edit'
 
 type LocationFormState = {
   locationName: string
@@ -34,6 +37,18 @@ type CameraSourceFormState = {
   cameraVendor: string; cameraModel: string; cameraResolution: string; cameraFps: string; cameraFov: string; isActive: '1' | '0'
 }
 type ImageProcessorFormState = { name: string; modelName: string; modelVersion: string; isActive: '1' | '0' }
+type RawDataCollectionSettingFormState = {
+  cameraSourceId: string
+  storageDestination: string
+  maxStorageSizeMb: string
+  maxImageCount: string
+  lifecycleStrategy: 'stop_on_condition' | 'replace_oldest_on_condition'
+  frameSamplingIntervalValue: string
+  frameSamplingIntervalUnit: 'frames' | 'seconds'
+  sessionGroupId: string
+  collectionContextNotes: string
+  collectionType: 'schedule' | 'immediate' | 'on_command'
+}
 
 const INITIAL_LOCATION_FORM: LocationFormState = {
   locationName: '',
@@ -47,6 +62,18 @@ const INITIAL_CAMERA_SOURCE_FORM: CameraSourceFormState = {
   cameraVendor: '', cameraModel: '', cameraResolution: '', cameraFps: '', cameraFov: '', isActive: '1',
 }
 const INITIAL_IMAGE_PROCESSOR_FORM: ImageProcessorFormState = { name: '', modelName: '', modelVersion: '', isActive: '1' }
+const INITIAL_RAW_DATA_COLLECTION_SETTING_FORM: RawDataCollectionSettingFormState = {
+  cameraSourceId: '',
+  storageDestination: '',
+  maxStorageSizeMb: '1024',
+  maxImageCount: '1000',
+  lifecycleStrategy: 'replace_oldest_on_condition',
+  frameSamplingIntervalValue: '1',
+  frameSamplingIntervalUnit: 'seconds',
+  sessionGroupId: '',
+  collectionContextNotes: '',
+  collectionType: 'immediate',
+}
 
 const CATALOG_TABLES: Array<{ endpoint: CatalogResourceEndpoint; label: string }> = [
   { endpoint: 'catalog/locations', label: 'Locations' },
@@ -57,6 +84,7 @@ const CATALOG_TABLES: Array<{ endpoint: CatalogResourceEndpoint; label: string }
   { endpoint: 'catalog/image-processor-object-classes', label: 'Image Processor Object Classes' },
   { endpoint: 'catalog/prediction-thresholds', label: 'Prediction Thresholds' },
   { endpoint: 'catalog/camera-source-health-logs', label: 'Camera Source Health Logs' },
+  { endpoint: 'catalog/raw-data-collection-settings', label: 'Raw Data Collection Settings' },
 ]
 
 function App() {
@@ -89,6 +117,15 @@ function App() {
   const [editingImageProcessorId, setEditingImageProcessorId] = useState<number | null>(null)
   const [selectedImageProcessorsPage, setSelectedImageProcessorsPage] = useState(1)
 
+  const [rawDataCollectionSettingForm, setRawDataCollectionSettingForm] =
+    useState<RawDataCollectionSettingFormState>(INITIAL_RAW_DATA_COLLECTION_SETTING_FORM)
+  const [rawDataCollectionSettingFormError, setRawDataCollectionSettingFormError] = useState('')
+  const [rawDataCollectionSettingFormSuccess, setRawDataCollectionSettingFormSuccess] = useState('')
+  const [rawDataCollectionSettingEditorMode, setRawDataCollectionSettingEditorMode] =
+    useState<RawDataCollectionSettingEditorMode>('list')
+  const [editingRawDataCollectionSettingId, setEditingRawDataCollectionSettingId] = useState<number | null>(null)
+  const [selectedRawDataCollectionSettingsPage, setSelectedRawDataCollectionSettingsPage] = useState(1)
+
   const [selectedCatalogEndpoint, setSelectedCatalogEndpoint] = useState<CatalogResourceEndpoint>('catalog/locations')
   const [selectedCatalogPage, setSelectedCatalogPage] = useState(1)
 
@@ -99,6 +136,8 @@ function App() {
   const updateCameraSourceMutation = useUpdateCameraSourceMutation()
   const uploadImageProcessorModelMutation = useUploadImageProcessorModelMutation()
   const updateImageProcessorMutation = useUpdateImageProcessorMutation()
+  const createRawDataCollectionSettingMutation = useCreateRawDataCollectionSettingMutation()
+  const updateRawDataCollectionSettingMutation = useUpdateRawDataCollectionSettingMutation()
 
   const {
     data: locationsCatalogData,
@@ -115,10 +154,21 @@ function App() {
     error: imageProcessorsCatalogError,
     isFetching: isImageProcessorsFetching,
   } = useCatalogTableQuery(token, 'catalog/image-processors', selectedImageProcessorsPage, CATALOG_PAGE_SIZE)
+  const {
+    data: rawDataCollectionSettingsCatalogData,
+    error: rawDataCollectionSettingsCatalogError,
+    isFetching: isRawDataCollectionSettingsFetching,
+  } = useCatalogTableQuery(
+    token,
+    'catalog/raw-data-collection-settings',
+    selectedRawDataCollectionSettingsPage,
+    CATALOG_PAGE_SIZE,
+  )
   const { data: catalogData, error: catalogError, isFetching: isCatalogFetching } =
     useCatalogTableQuery(token, selectedCatalogEndpoint, selectedCatalogPage, CATALOG_PAGE_SIZE)
   const { data: locationOptionsData } = useCatalogTableQuery(token, 'catalog/locations', 1, 100)
   const { data: imageProcessorOptionsData } = useCatalogTableQuery(token, 'catalog/image-processors', 1, 100)
+  const { data: cameraSourceOptionsData } = useCatalogTableQuery(token, 'catalog/camera-sources', 1, 100)
 
   const modules = dashboardData?.modules ?? []
   const locationCount = dashboardData?.locationCount ?? 0
@@ -296,6 +346,89 @@ function App() {
         ),
     [imageProcessorsCatalogData?.rows],
   )
+  const rawDataCollectionSettingRows = useMemo(
+    () =>
+      (rawDataCollectionSettingsCatalogData?.rows ?? [])
+        .map((row) => {
+          const id = row.id
+          const cameraSourceId = row.camera_source_id
+          const storageDestination = row.storage_destination
+          const maxStorageSizeMb = row.max_storage_size_mb
+          const maxImageCount = row.max_image_count
+          const lifecycleStrategy = row.lifecycle_strategy
+          const frameSamplingIntervalValue = row.frame_sampling_interval_value
+          const frameSamplingIntervalUnit = row.frame_sampling_interval_unit
+          const sessionGroupId = row.session_group_id
+          const collectionContextNotes = row.collection_context_notes
+          const collectionType = row.collection_type
+
+          if (
+            typeof id !== 'number' ||
+            typeof cameraSourceId !== 'number' ||
+            typeof storageDestination !== 'string'
+          ) {
+            return null
+          }
+
+          return {
+            id,
+            cameraSourceId,
+            storageDestination,
+            maxStorageSizeMb:
+              typeof maxStorageSizeMb === 'number'
+                ? maxStorageSizeMb
+                : typeof maxStorageSizeMb === 'string'
+                  ? Number(maxStorageSizeMb)
+                  : null,
+            maxImageCount:
+              typeof maxImageCount === 'number'
+                ? maxImageCount
+                : typeof maxImageCount === 'string'
+                  ? Number(maxImageCount)
+                  : null,
+            lifecycleStrategy:
+              lifecycleStrategy === 'stop_on_condition' || lifecycleStrategy === 'replace_oldest_on_condition'
+                ? lifecycleStrategy
+                : 'replace_oldest_on_condition',
+            frameSamplingIntervalValue:
+              typeof frameSamplingIntervalValue === 'number'
+                ? frameSamplingIntervalValue
+                : typeof frameSamplingIntervalValue === 'string'
+                  ? Number(frameSamplingIntervalValue)
+                  : null,
+            frameSamplingIntervalUnit:
+              frameSamplingIntervalUnit === 'frames' || frameSamplingIntervalUnit === 'seconds'
+                ? frameSamplingIntervalUnit
+                : 'seconds',
+            sessionGroupId: typeof sessionGroupId === 'string' ? sessionGroupId : '',
+            collectionContextNotes: typeof collectionContextNotes === 'string' ? collectionContextNotes : '',
+            collectionType:
+              collectionType === 'schedule' ||
+              collectionType === 'immediate' ||
+              collectionType === 'on_command'
+                ? collectionType
+                : 'immediate',
+          }
+        })
+        .filter(
+          (
+            rawDataCollectionSetting,
+          ): rawDataCollectionSetting is {
+            id: number
+            cameraSourceId: number
+            storageDestination: string
+            maxStorageSizeMb: number | null
+            maxImageCount: number | null
+            lifecycleStrategy: 'stop_on_condition' | 'replace_oldest_on_condition'
+            frameSamplingIntervalValue: number | null
+            frameSamplingIntervalUnit: 'frames' | 'seconds'
+            sessionGroupId: string
+            collectionContextNotes: string
+            collectionType: 'schedule' | 'immediate' | 'on_command'
+          } => rawDataCollectionSetting !== null,
+        ),
+    [rawDataCollectionSettingsCatalogData?.rows],
+  )
   const locationOptions = useMemo(
     () =>
       (locationOptionsData?.rows ?? [])
@@ -309,6 +442,19 @@ function App() {
         .filter((location): location is { id: number; locationName: string } => location !== null),
     [locationOptionsData?.rows],
   )
+  const cameraSourceOptions = useMemo(
+    () =>
+      (cameraSourceOptionsData?.rows ?? [])
+        .map((row) => {
+          const id = row.id
+          const sourceName = row.source_name
+          return typeof id === 'number' && typeof sourceName === 'string'
+            ? { id, sourceName }
+            : null
+        })
+        .filter((cameraSource): cameraSource is { id: number; sourceName: string } => cameraSource !== null),
+    [cameraSourceOptionsData?.rows],
+  )
 
   const loadError = dashboardError instanceof Error ? dashboardError.message : ''
   const catalogLoadError = catalogError instanceof Error ? catalogError.message : ''
@@ -317,12 +463,15 @@ function App() {
     cameraSourcesCatalogError instanceof Error ? cameraSourcesCatalogError.message : ''
   const imageProcessorsLoadError =
     imageProcessorsCatalogError instanceof Error ? imageProcessorsCatalogError.message : ''
+  const rawDataCollectionSettingsLoadError =
+    rawDataCollectionSettingsCatalogError instanceof Error ? rawDataCollectionSettingsCatalogError.message : ''
 
   const navItems = [
     { key: 'overview', label: 'Overview', icon: LayoutDashboard },
     { key: 'locations', label: 'Locations', icon: MapPin },
     { key: 'cameraSources', label: 'Camera Sources', icon: Camera },
     { key: 'imageProcessors', label: 'Image Processors', icon: Cpu },
+    { key: 'rawDataCollectionSettings', label: 'Raw Data Collections', icon: HardDrive },
     { key: 'catalog', label: 'Catalog Browser', icon: Database },
   ]
 
@@ -331,6 +480,7 @@ function App() {
     locations: 'Locations',
     cameraSources: 'Camera Sources',
     imageProcessors: 'Image Processors',
+    rawDataCollectionSettings: 'Raw Data Collection Settings',
     catalog: 'Catalog Browser',
   }
 
@@ -550,6 +700,112 @@ function App() {
       setEditingImageProcessorId(null)
       setImageProcessorEditorMode('list')
     } catch (error) { setImageProcessorError(error instanceof Error ? error.message : 'Unable to save image processor.'); setImageProcessorSuccess('') }
+  }
+
+  const resetRawDataCollectionSettingEditor = () => {
+    setRawDataCollectionSettingEditorMode('list')
+    setEditingRawDataCollectionSettingId(null)
+    setRawDataCollectionSettingForm(INITIAL_RAW_DATA_COLLECTION_SETTING_FORM)
+    setRawDataCollectionSettingFormError('')
+    setRawDataCollectionSettingFormSuccess('')
+  }
+
+  const onRawDataCollectionSettingEdit = (rawDataCollectionSettingId: number) => {
+    const selectedRawDataCollectionSetting = rawDataCollectionSettingRows.find(
+      (rawDataCollectionSetting) => rawDataCollectionSetting.id === rawDataCollectionSettingId,
+    )
+
+    if (!selectedRawDataCollectionSetting) {
+      return
+    }
+
+    setRawDataCollectionSettingEditorMode('edit')
+    setEditingRawDataCollectionSettingId(selectedRawDataCollectionSetting.id)
+    setRawDataCollectionSettingForm({
+      cameraSourceId: String(selectedRawDataCollectionSetting.cameraSourceId),
+      storageDestination: selectedRawDataCollectionSetting.storageDestination,
+      maxStorageSizeMb:
+        selectedRawDataCollectionSetting.maxStorageSizeMb === null
+          ? ''
+          : String(selectedRawDataCollectionSetting.maxStorageSizeMb),
+      maxImageCount:
+        selectedRawDataCollectionSetting.maxImageCount === null
+          ? ''
+          : String(selectedRawDataCollectionSetting.maxImageCount),
+      lifecycleStrategy: selectedRawDataCollectionSetting.lifecycleStrategy,
+      frameSamplingIntervalValue:
+        selectedRawDataCollectionSetting.frameSamplingIntervalValue === null
+          ? ''
+          : String(selectedRawDataCollectionSetting.frameSamplingIntervalValue),
+      frameSamplingIntervalUnit: selectedRawDataCollectionSetting.frameSamplingIntervalUnit,
+      sessionGroupId: selectedRawDataCollectionSetting.sessionGroupId,
+      collectionContextNotes: selectedRawDataCollectionSetting.collectionContextNotes,
+      collectionType: selectedRawDataCollectionSetting.collectionType,
+    })
+    setRawDataCollectionSettingFormError('')
+    setRawDataCollectionSettingFormSuccess('')
+  }
+
+  const onSubmitRawDataCollectionSetting = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+
+    if (!token) { setRawDataCollectionSettingFormError('Please login first.'); return }
+    if (!rawDataCollectionSettingForm.cameraSourceId) { setRawDataCollectionSettingFormError('Camera source is required.'); return }
+    if (!rawDataCollectionSettingForm.maxStorageSizeMb || Number(rawDataCollectionSettingForm.maxStorageSizeMb) < 1) {
+      setRawDataCollectionSettingFormError('Maximum storage size must be at least 1 MB.')
+      return
+    }
+    if (!rawDataCollectionSettingForm.maxImageCount || Number(rawDataCollectionSettingForm.maxImageCount) < 1) {
+      setRawDataCollectionSettingFormError('Maximum number of images must be at least 1.')
+      return
+    }
+    if (
+      !rawDataCollectionSettingForm.frameSamplingIntervalValue ||
+      Number(rawDataCollectionSettingForm.frameSamplingIntervalValue) < 1
+    ) {
+      setRawDataCollectionSettingFormError('Frame sampling interval must be at least 1.')
+      return
+    }
+
+    try {
+      const payload = {
+        cameraSourceId: Number(rawDataCollectionSettingForm.cameraSourceId),
+        storageDestination: rawDataCollectionSettingForm.storageDestination,
+        maxStorageSizeMb: Number(rawDataCollectionSettingForm.maxStorageSizeMb),
+        maxImageCount: Number(rawDataCollectionSettingForm.maxImageCount),
+        lifecycleStrategy: rawDataCollectionSettingForm.lifecycleStrategy,
+        frameSamplingIntervalValue: Number(rawDataCollectionSettingForm.frameSamplingIntervalValue),
+        frameSamplingIntervalUnit: rawDataCollectionSettingForm.frameSamplingIntervalUnit,
+        sessionGroupId: rawDataCollectionSettingForm.sessionGroupId,
+        collectionContextNotes: rawDataCollectionSettingForm.collectionContextNotes || null,
+        collectionType: rawDataCollectionSettingForm.collectionType,
+      }
+
+      if (rawDataCollectionSettingEditorMode === 'edit' && editingRawDataCollectionSettingId !== null) {
+        await updateRawDataCollectionSettingMutation.mutateAsync({
+          token,
+          rawDataCollectionSettingId: editingRawDataCollectionSettingId,
+          payload,
+        })
+        setRawDataCollectionSettingFormSuccess('Raw data collection setting updated successfully.')
+      } else {
+        await createRawDataCollectionSettingMutation.mutateAsync({
+          token,
+          payload,
+        })
+        setRawDataCollectionSettingFormSuccess('Raw data collection setting created successfully.')
+      }
+
+      setRawDataCollectionSettingForm(INITIAL_RAW_DATA_COLLECTION_SETTING_FORM)
+      setRawDataCollectionSettingFormError('')
+      setEditingRawDataCollectionSettingId(null)
+      setRawDataCollectionSettingEditorMode('list')
+    } catch (error) {
+      setRawDataCollectionSettingFormError(
+        error instanceof Error ? error.message : 'Unable to save raw data collection setting.',
+      )
+      setRawDataCollectionSettingFormSuccess('')
+    }
   }
 
   // ── Login screen ──────────────────────────────────────────────────────────
@@ -1193,6 +1449,289 @@ function App() {
                     </div>
                     {imageProcessorSuccess && <div className="alert alert-success">{imageProcessorSuccess}</div>}
                     {imageProcessorError && <div className="alert alert-error">{imageProcessorError}</div>}
+                  </form>
+                )}
+              </div>
+            )}
+
+            {/* ── Raw Data Collection Settings ── */}
+            {activeView === 'rawDataCollectionSettings' && (
+              <div className="card">
+                <div className="card-header">
+                  <div className="card-icon"><HardDrive size={16} /></div>
+                  <div>
+                    <div className="card-title">Raw Data Collection Settings</div>
+                    <div className="card-subtitle">Create and apply data collection policies per camera source</div>
+                  </div>
+                </div>
+
+                <div className="catalog-toolbar">
+                  <button
+                    className="btn btn-primary"
+                    type="button"
+                    onClick={() => {
+                      setRawDataCollectionSettingEditorMode('create')
+                      setEditingRawDataCollectionSettingId(null)
+                      setRawDataCollectionSettingForm(INITIAL_RAW_DATA_COLLECTION_SETTING_FORM)
+                      setRawDataCollectionSettingFormError('')
+                      setRawDataCollectionSettingFormSuccess('')
+                    }}
+                  >
+                    <HardDrive size={13} />
+                    Create Raw Data Collection Setting
+                  </button>
+                  {isRawDataCollectionSettingsFetching && (
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Loading...</div>
+                  )}
+                </div>
+
+                {rawDataCollectionSettingsLoadError && (
+                  <div className="alert alert-error" style={{ marginBottom: 16 }}>{rawDataCollectionSettingsLoadError}</div>
+                )}
+
+                <div className="table-wrap">
+                  {rawDataCollectionSettingRows.length === 0 ? (
+                    <div className="empty-state">
+                      <div className="empty-icon"><Database size={28} /></div>
+                      {isRawDataCollectionSettingsFetching
+                        ? 'Fetching raw data collection settings...'
+                        : 'No raw data collection settings available.'}
+                    </div>
+                  ) : (
+                    <table className="data-table">
+                      <thead>
+                      <tr>
+                        <th>id</th>
+                        <th>camera_source_id</th>
+                        <th>storage_destination</th>
+                        <th>max_storage_size_mb</th>
+                        <th>max_image_count</th>
+                        <th>lifecycle_strategy</th>
+                        <th>frame_sampling_interval</th>
+                        <th>session_group_id</th>
+                        <th>collection_type</th>
+                        <th>actions</th>
+                      </tr>
+                      </thead>
+                      <tbody>
+                      {rawDataCollectionSettingRows.map((rawDataCollectionSetting) => (
+                        <tr key={rawDataCollectionSetting.id}>
+                          <td>{rawDataCollectionSetting.id}</td>
+                          <td>{rawDataCollectionSetting.cameraSourceId}</td>
+                          <td>{rawDataCollectionSetting.storageDestination}</td>
+                          <td>
+                            {rawDataCollectionSetting.maxStorageSizeMb === null
+                              ? <span className="table-null">—</span>
+                              : String(rawDataCollectionSetting.maxStorageSizeMb)}
+                          </td>
+                          <td>
+                            {rawDataCollectionSetting.maxImageCount === null
+                              ? <span className="table-null">—</span>
+                              : String(rawDataCollectionSetting.maxImageCount)}
+                          </td>
+                          <td>{rawDataCollectionSetting.lifecycleStrategy}</td>
+                          <td>
+                            {rawDataCollectionSetting.frameSamplingIntervalValue === null
+                              ? <span className="table-null">—</span>
+                              : `${rawDataCollectionSetting.frameSamplingIntervalValue} ${rawDataCollectionSetting.frameSamplingIntervalUnit}`}
+                          </td>
+                          <td>{rawDataCollectionSetting.sessionGroupId}</td>
+                          <td>{rawDataCollectionSetting.collectionType}</td>
+                          <td>
+                            <button
+                              className="btn btn-ghost"
+                              type="button"
+                              onClick={() => onRawDataCollectionSettingEdit(rawDataCollectionSetting.id)}
+                            >
+                              Edit
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+
+                {rawDataCollectionSettingsCatalogData && rawDataCollectionSettingsCatalogData.lastPage > 1 && (
+                  <div className="pagination">
+                    <button
+                      className="btn btn-ghost"
+                      onClick={() => setSelectedRawDataCollectionSettingsPage((current) => Math.max(1, current - 1))}
+                      disabled={rawDataCollectionSettingsCatalogData.currentPage <= 1 || isRawDataCollectionSettingsFetching}
+                    >
+                      ← Prev
+                    </button>
+                    <span className="page-info">
+                      Page {rawDataCollectionSettingsCatalogData.currentPage} of {rawDataCollectionSettingsCatalogData.lastPage}
+                    </span>
+                    <button
+                      className="btn btn-ghost"
+                      onClick={() =>
+                        setSelectedRawDataCollectionSettingsPage((current) =>
+                          Math.min(rawDataCollectionSettingsCatalogData.lastPage, current + 1),
+                        )}
+                      disabled={rawDataCollectionSettingsCatalogData.currentPage >= rawDataCollectionSettingsCatalogData.lastPage || isRawDataCollectionSettingsFetching}
+                    >
+                      Next →
+                    </button>
+                  </div>
+                )}
+
+                {rawDataCollectionSettingEditorMode !== 'list' && (
+                  <form onSubmit={onSubmitRawDataCollectionSetting} style={{ display: 'grid', gap: 16, marginTop: 20 }}>
+                    <div className="form-grid">
+                      <div className="form-section-title">
+                        {rawDataCollectionSettingEditorMode === 'edit'
+                          ? 'Edit Raw Data Collection Setting'
+                          : 'Create Raw Data Collection Setting'}
+                      </div>
+                      <div className="form-field">
+                        <label className="form-label">Camera Source<span className="form-required">*</span></label>
+                        <select
+                          className="form-input"
+                          value={rawDataCollectionSettingForm.cameraSourceId}
+                          onChange={(e) => setRawDataCollectionSettingForm((current) => ({ ...current, cameraSourceId: e.target.value }))}
+                          required
+                        >
+                          <option value="">Select a camera source</option>
+                          {cameraSourceOptions.map((cameraSource) => (
+                            <option key={cameraSource.id} value={cameraSource.id}>{cameraSource.sourceName}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="form-field">
+                        <label className="form-label">Storage Destination<span className="form-required">*</span></label>
+                        <input
+                          className="form-input"
+                          value={rawDataCollectionSettingForm.storageDestination}
+                          onChange={(e) => setRawDataCollectionSettingForm((current) => ({ ...current, storageDestination: e.target.value }))}
+                          placeholder="/data/raw/camera-1/session-a"
+                          required
+                        />
+                      </div>
+                      <div className="form-field">
+                        <label className="form-label">Maximum Storage Size (MB)<span className="form-required">*</span></label>
+                        <input
+                          className="form-input"
+                          type="number"
+                          min={1}
+                          value={rawDataCollectionSettingForm.maxStorageSizeMb}
+                          onChange={(e) => setRawDataCollectionSettingForm((current) => ({ ...current, maxStorageSizeMb: e.target.value }))}
+                          required
+                        />
+                      </div>
+                      <div className="form-field">
+                        <label className="form-label">Maximum Number of Images<span className="form-required">*</span></label>
+                        <input
+                          className="form-input"
+                          type="number"
+                          min={1}
+                          value={rawDataCollectionSettingForm.maxImageCount}
+                          onChange={(e) => setRawDataCollectionSettingForm((current) => ({ ...current, maxImageCount: e.target.value }))}
+                          required
+                        />
+                      </div>
+                      <div className="form-field">
+                        <label className="form-label">Lifecycle Strategy<span className="form-required">*</span></label>
+                        <select
+                          className="form-input"
+                          value={rawDataCollectionSettingForm.lifecycleStrategy}
+                          onChange={(e) =>
+                            setRawDataCollectionSettingForm((current) => ({
+                              ...current,
+                              lifecycleStrategy: e.target.value as 'stop_on_condition' | 'replace_oldest_on_condition',
+                            }))}
+                        >
+                          <option value="replace_oldest_on_condition">Replace oldest on condition</option>
+                          <option value="stop_on_condition">Stop collecting on condition</option>
+                        </select>
+                      </div>
+                      <div className="form-field">
+                        <label className="form-label">Frame Sampling Interval Value<span className="form-required">*</span></label>
+                        <input
+                          className="form-input"
+                          type="number"
+                          min={1}
+                          value={rawDataCollectionSettingForm.frameSamplingIntervalValue}
+                          onChange={(e) => setRawDataCollectionSettingForm((current) => ({ ...current, frameSamplingIntervalValue: e.target.value }))}
+                          required
+                        />
+                      </div>
+                      <div className="form-field">
+                        <label className="form-label">Frame Sampling Interval Unit<span className="form-required">*</span></label>
+                        <select
+                          className="form-input"
+                          value={rawDataCollectionSettingForm.frameSamplingIntervalUnit}
+                          onChange={(e) =>
+                            setRawDataCollectionSettingForm((current) => ({
+                              ...current,
+                              frameSamplingIntervalUnit: e.target.value as 'frames' | 'seconds',
+                            }))}
+                        >
+                          <option value="frames">Frames</option>
+                          <option value="seconds">Seconds</option>
+                        </select>
+                      </div>
+                      <div className="form-field">
+                        <label className="form-label">Session Group ID<span className="form-required">*</span></label>
+                        <input
+                          className="form-input"
+                          value={rawDataCollectionSettingForm.sessionGroupId}
+                          onChange={(e) => setRawDataCollectionSettingForm((current) => ({ ...current, sessionGroupId: e.target.value }))}
+                          placeholder="session_group_2026_05_15_cam_1"
+                          required
+                        />
+                      </div>
+                      <div className="form-field">
+                        <label className="form-label">Collection Type<span className="form-required">*</span></label>
+                        <select
+                          className="form-input"
+                          value={rawDataCollectionSettingForm.collectionType}
+                          onChange={(e) =>
+                            setRawDataCollectionSettingForm((current) => ({
+                              ...current,
+                              collectionType: e.target.value as 'schedule' | 'immediate' | 'on_command',
+                            }))}
+                        >
+                          <option value="schedule">Schedule</option>
+                          <option value="immediate">Immediate</option>
+                          <option value="on_command">On command</option>
+                        </select>
+                      </div>
+                      <div className="form-field" style={{ gridColumn: '1 / -1' }}>
+                        <label className="form-label">Collection Context / Notes</label>
+                        <textarea
+                          className="form-input"
+                          rows={3}
+                          value={rawDataCollectionSettingForm.collectionContextNotes}
+                          onChange={(e) => setRawDataCollectionSettingForm((current) => ({ ...current, collectionContextNotes: e.target.value }))}
+                          placeholder="Lighting, environment type, camera angle, and other annotation context."
+                        />
+                      </div>
+
+                      <div className="form-actions">
+                        <button
+                          className="btn btn-primary"
+                          type="submit"
+                          disabled={createRawDataCollectionSettingMutation.isPending || updateRawDataCollectionSettingMutation.isPending}
+                        >
+                          <HardDrive size={13} />
+                          {rawDataCollectionSettingEditorMode === 'edit'
+                            ? updateRawDataCollectionSettingMutation.isPending
+                              ? 'Saving...'
+                              : 'Save Changes'
+                            : createRawDataCollectionSettingMutation.isPending
+                              ? 'Creating...'
+                              : 'Create Raw Data Collection Setting'}
+                        </button>
+                        <button className="btn btn-ghost" type="button" onClick={resetRawDataCollectionSettingEditor}>
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                    {rawDataCollectionSettingFormSuccess && <div className="alert alert-success">{rawDataCollectionSettingFormSuccess}</div>}
+                    {rawDataCollectionSettingFormError && <div className="alert alert-error">{rawDataCollectionSettingFormError}</div>}
                   </form>
                 )}
               </div>

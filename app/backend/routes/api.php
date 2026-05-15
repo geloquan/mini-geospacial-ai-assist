@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\LocationController;
 use App\Http\Controllers\Api\ObjectClassAliasController;
 use App\Http\Controllers\Api\ObjectClassController;
 use App\Http\Controllers\Api\PredictionThresholdController;
+use App\Http\Controllers\Api\RawDataCollectionSettingController;
 use App\Http\Middleware\ApiTokenAuth;
 use Illuminate\Support\Facades\Route;
 
@@ -26,4 +27,5 @@ Route::middleware(ApiTokenAuth::class)->group(function (): void {
   Route::apiResource('catalog/image-processor-object-classes', ImageProcessorObjectClassController::class);
   Route::apiResource('catalog/prediction-thresholds', PredictionThresholdController::class);
   Route::apiResource('catalog/camera-source-health-logs', CameraSourceHealthLogController::class);
+  Route::apiResource('catalog/raw-data-collection-settings', RawDataCollectionSettingController::class);
 });
