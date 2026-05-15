@@ -79,12 +79,16 @@ export type CreateCameraSourceInput = {
   isActive: boolean
 }
 
+export type UpdateCameraSourceInput = Partial<CreateCameraSourceInput>
+
 export type CreateImageProcessorInput = {
   name: string
   modelName: string
   modelVersion: string
   isActive: boolean
 }
+
+export type UpdateImageProcessorInput = Partial<CreateImageProcessorInput>
 
 type StoreCameraSourceApiResponse = {
   data: {
@@ -265,6 +269,41 @@ export const createCameraSource = async (
   return payload.data.id
 }
 
+export const updateCameraSource = async (
+  token: string,
+  cameraSourceId: number,
+  input: UpdateCameraSourceInput,
+): Promise<number> => {
+  const payload = await requestJson<StoreCameraSourceApiResponse>(`/catalog/camera-sources/${cameraSourceId}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      ...(input.locationId !== undefined ? { location_id: input.locationId } : {}),
+      ...(input.imageProcessorId !== undefined ? { image_processor_id: input.imageProcessorId } : {}),
+      ...(input.sourceName !== undefined ? { source_name: input.sourceName } : {}),
+      ...(input.cameraIdentifier !== undefined ? { camera_identifier: input.cameraIdentifier } : {}),
+      ...(input.liveFeedUrl !== undefined ? { live_feed_url: input.liveFeedUrl } : {}),
+      ...(input.cameraSpecification !== undefined
+        ? {
+            camera_specification: {
+              vendor: input.cameraSpecification.vendor,
+              model: input.cameraSpecification.model,
+              resolution: input.cameraSpecification.resolution,
+              fps: input.cameraSpecification.fps,
+              field_of_view: input.cameraSpecification.fieldOfView,
+            },
+          }
+        : {}),
+      ...(input.isActive !== undefined ? { is_active: input.isActive } : {}),
+    }),
+  })
+
+  return payload.data.id
+}
+
 export const uploadImageProcessorModel = async (
   token: string,
   file: File,
@@ -298,6 +337,60 @@ export const uploadImageProcessorModel = async (
     fileName: payload.data.name,
     extension,
     sizeBytes: file.size,
+    uploadedAt: payload.data.created_at,
+    modelPath: payload.data.model_path,
+  }
+}
+
+export const updateImageProcessor = async (
+  token: string,
+  imageProcessorId: number,
+  input: UpdateImageProcessorInput,
+  file: File | null,
+): Promise<UploadedImageProcessor> => {
+  const formData = new FormData()
+
+  if (input.name !== undefined) {
+    formData.append('name', input.name)
+  }
+  if (input.modelName !== undefined) {
+    formData.append('model_name', input.modelName)
+  }
+  if (input.modelVersion !== undefined) {
+    formData.append('model_version', input.modelVersion)
+  }
+  if (input.isActive !== undefined) {
+    formData.append('is_active', input.isActive ? '1' : '0')
+  }
+  if (file !== null) {
+    formData.append('model_file', file)
+  }
+  formData.append('_method', 'PUT')
+
+  const response = await fetch(`${API_BASE}/catalog/image-processors/${imageProcessorId}`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    body: formData,
+  })
+
+  if (!response.ok) {
+    throw new Error(await getErrorMessage(response))
+  }
+
+  const payload = (await response.json()) as StoreImageProcessorApiResponse
+  const extension = file === null ? '' : (() => {
+    const extensionIndex = file.name.lastIndexOf('.')
+    return extensionIndex >= 0 ? file.name.slice(extensionIndex).toLowerCase() : ''
+  })()
+  const sizeBytes = file === null ? 0 : file.size
+
+  return {
+    id: payload.data.id,
+    fileName: payload.data.name,
+    extension,
+    sizeBytes,
     uploadedAt: payload.data.created_at,
     modelPath: payload.data.model_path,
   }
