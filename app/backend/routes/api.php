@@ -16,14 +16,14 @@ use Illuminate\Support\Facades\Route;
 Route::post('/login', [AuthController::class, 'login']);
 
 Route::middleware(ApiTokenAuth::class)->group(function (): void {
-    Route::get('/dashboard', [DashboardController::class, 'index']);
+  Route::get('/dashboard', [DashboardController::class, 'index']);
 
-    Route::apiResource('catalog/locations', LocationController::class);
-    Route::apiResource('catalog/camera-sources', CameraSourceController::class);
-    Route::apiResource('catalog/image-processors', ImageProcessorController::class);
-    Route::apiResource('catalog/object-classes', ObjectClassController::class);
-    Route::apiResource('catalog/object-class-aliases', ObjectClassAliasController::class);
-    Route::apiResource('catalog/image-processor-object-classes', ImageProcessorObjectClassController::class);
-    Route::apiResource('catalog/prediction-thresholds', PredictionThresholdController::class);
-    Route::apiResource('catalog/camera-source-health-logs', CameraSourceHealthLogController::class);
+  Route::apiResource('catalog/locations', LocationController::class);
+  Route::apiResource('catalog/camera-sources', CameraSourceController::class);
+  Route::apiResource('catalog/image-processors', ImageProcessorController::class);
+  Route::apiResource('catalog/object-classes', ObjectClassController::class);
+  Route::apiResource('catalog/object-class-aliases', ObjectClassAliasController::class);
+  Route::apiResource('catalog/image-processor-object-classes', ImageProcessorObjectClassController::class);
+  Route::apiResource('catalog/prediction-thresholds', PredictionThresholdController::class);
+  Route::apiResource('catalog/camera-source-health-logs', CameraSourceHealthLogController::class);
 });
