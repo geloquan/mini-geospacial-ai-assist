@@ -636,7 +636,7 @@ function App() {
     if (!cameraSourceForm.locationId) { setCameraSourceFormError('Location is required.'); return }
     const liveFeedUrl = cameraSourceForm.liveFeedUrl.trim()
     if (liveFeedUrl && !RTSP_URL_REGEX_CASE_INSENSITIVE.test(liveFeedUrl)) {
-      setCameraSourceFormError('Live Feed URL must start with rtsp://')
+      setCameraSourceFormError('Live Feed URL must start with the rtsp:// scheme.')
       return
     }
     try {
