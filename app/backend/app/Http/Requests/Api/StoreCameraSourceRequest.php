@@ -21,7 +21,7 @@ class StoreCameraSourceRequest extends FormRequest
             'image_processor_id' => ['nullable', 'integer', 'exists:image_processors,id'],
             'source_name' => ['required', 'string', 'max:255'],
             'camera_identifier' => ['nullable', 'string', 'max:255'],
-            'live_feed_url' => ['nullable', 'url', 'max:2048'],
+            'live_feed_url' => ['nullable', 'url', 'max:2048', 'regex:/^rtsp:\/\/.+/i'],
             'camera_specification' => ['nullable', 'array'],
             'is_active' => ['sometimes', 'boolean'],
         ];

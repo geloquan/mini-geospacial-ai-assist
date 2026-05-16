@@ -21,7 +21,7 @@ class UpdateCameraSourceRequest extends FormRequest
             'image_processor_id' => ['sometimes', 'nullable', 'integer', 'exists:image_processors,id'],
             'source_name' => ['sometimes', 'required', 'string', 'max:255'],
             'camera_identifier' => ['sometimes', 'nullable', 'string', 'max:255'],
-            'live_feed_url' => ['sometimes', 'nullable', 'url', 'max:2048'],
+            'live_feed_url' => ['sometimes', 'nullable', 'url', 'max:2048', 'regex:/^rtsp:\/\/.+/i'],
             'camera_specification' => ['sometimes', 'nullable', 'array'],
             'is_active' => ['sometimes', 'boolean'],
         ];

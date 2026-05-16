@@ -19,6 +19,7 @@ import './App.css'
 const TOKEN_KEY = 'mini_geospatial_auth_token'
 const CATALOG_PAGE_SIZE = 10
 const EMPTY_CATALOG_ROWS: Record<string, unknown>[] = []
+const RTSP_URL_PATTERN = /^rtsp:\/\/.+/i
 
 type DashboardView = 'overview' | 'locations' | 'cameraSources' | 'imageProcessors' | 'rawDataCollectionSettings' | 'catalog'
 type LocationEditorMode = 'list' | 'create' | 'edit'
@@ -633,13 +634,18 @@ function App() {
     event.preventDefault()
     if (!token) { setCameraSourceFormError('Please login first.'); return }
     if (!cameraSourceForm.locationId) { setCameraSourceFormError('Location is required.'); return }
+    const liveFeedUrl = cameraSourceForm.liveFeedUrl.trim()
+    if (liveFeedUrl && !RTSP_URL_PATTERN.test(liveFeedUrl)) {
+      setCameraSourceFormError('Live Feed URL must start with rtsp://.')
+      return
+    }
     try {
       const payload = {
         locationId: Number(cameraSourceForm.locationId),
         imageProcessorId: cameraSourceForm.imageProcessorId ? Number(cameraSourceForm.imageProcessorId) : null,
         sourceName: cameraSourceForm.sourceName,
         cameraIdentifier: cameraSourceForm.cameraIdentifier || null,
-        liveFeedUrl: cameraSourceForm.liveFeedUrl || null,
+        liveFeedUrl: liveFeedUrl || null,
         cameraSpecification: {
           vendor: cameraSourceForm.cameraVendor || null,
           model: cameraSourceForm.cameraModel || null,
@@ -1267,7 +1273,7 @@ function App() {
                       </div>
                       <div className="form-field">
                         <label className="form-label">Live Feed URL</label>
-                        <input className="form-input" type="url" value={cameraSourceForm.liveFeedUrl} onChange={(e) => setCameraSourceForm((c) => ({ ...c, liveFeedUrl: e.target.value }))} placeholder="rtsp://..." />
+                        <input className="form-input" type="url" value={cameraSourceForm.liveFeedUrl} onChange={(e) => setCameraSourceForm((c) => ({ ...c, liveFeedUrl: e.target.value }))} placeholder="rtsp://..." pattern="rtsp://.*" title="Live Feed URL must start with rtsp://" />
                       </div>
                       <div className="form-field">
                         <label className="form-label">Vendor</label>
