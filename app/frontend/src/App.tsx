@@ -636,7 +636,7 @@ function App() {
     if (!cameraSourceForm.locationId) { setCameraSourceFormError('Location is required.'); return }
     const liveFeedUrl = cameraSourceForm.liveFeedUrl.trim()
     if (liveFeedUrl && !RTSP_URL_REGEX_CASE_INSENSITIVE.test(liveFeedUrl)) {
-      setCameraSourceFormError('Live Feed URL must start with rtsp://.')
+      setCameraSourceFormError('Live Feed URL must start with rtsp://')
       return
     }
     try {
@@ -1273,7 +1273,7 @@ function App() {
                       </div>
                       <div className="form-field">
                         <label className="form-label">Live Feed URL</label>
-                        <input className="form-input" type="url" value={cameraSourceForm.liveFeedUrl} onChange={(e) => setCameraSourceForm((c) => ({ ...c, liveFeedUrl: e.target.value }))} placeholder="rtsp://..." pattern="rtsp://.+" title="Live Feed URL must start with rtsp://" />
+                        <input className="form-input" type="url" value={cameraSourceForm.liveFeedUrl} onChange={(e) => setCameraSourceForm((c) => ({ ...c, liveFeedUrl: e.target.value }))} placeholder="rtsp://..." />
                       </div>
                       <div className="form-field">
                         <label className="form-label">Vendor</label>
