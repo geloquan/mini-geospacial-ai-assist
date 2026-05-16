@@ -84,7 +84,8 @@ class RawDataCollectionFrameCaptureService
             return false;
         }
 
-        $newFrameRelativePath = $framesDirectory.'/frame_'.now()->format('Ymd_His_u').'_'.Str::uuid().'.jpg';
+        $outputExtension = $this->resolveOutputExtension($cameraSource);
+        $newFrameRelativePath = $framesDirectory.'/frame_'.now()->format('Ymd_His_u').'_'.Str::uuid().'.'.$outputExtension;
         $newFrameAbsolutePath = Storage::disk('local')->path($newFrameRelativePath);
 
         $ffmpeg = FFMpeg::create($this->buildFfmpegConfiguration($cameraSource));
@@ -292,11 +293,31 @@ class RawDataCollectionFrameCaptureService
             return null;
         }
 
-        if (preg_match('/^[A-Za-z0-9._\/-]+$/', $normalizedStorageDestination) !== 1) {
+        if (preg_match('/^[-A-Za-z0-9._\/]+$/', $normalizedStorageDestination) !== 1) {
             return null;
         }
 
         return $normalizedStorageDestination;
+    }
+
+    private function resolveOutputExtension(CameraSource $cameraSource): string
+    {
+        $cameraSpecification = $cameraSource->camera_specification;
+        if (!is_array($cameraSpecification)) {
+            return 'jpg';
+        }
+
+        $outputExtension = $cameraSpecification['frame_output_extension'] ?? null;
+        if (!is_string($outputExtension)) {
+            return 'jpg';
+        }
+
+        $normalizedExtension = strtolower(trim($outputExtension, ". \t\n\r\0\x0B"));
+        if (!in_array($normalizedExtension, ['jpg', 'jpeg', 'png', 'webp', 'bmp', 'gif', 'tif', 'tiff'], true)) {
+            return 'jpg';
+        }
+
+        return $normalizedExtension;
     }
 
     /**

@@ -29,6 +29,24 @@ Artisan::command('raw-data-collection:capture-frames {rawDataCollectionSetting?}
     return 0;
 })->purpose('Capture image frames from camera sources using raw data collection settings.');
 
-Schedule::command('raw-data-collection:capture-frames')
-    ->everyFiveSeconds()
+$captureScheduleSeconds = max(1, (int) env('RAW_DATA_COLLECTION_CAPTURE_SCHEDULE_SECONDS', 5));
+$captureFrameEvent = Schedule::command('raw-data-collection:capture-frames')
     ->withoutOverlapping();
+
+if ($captureScheduleSeconds <= 1) {
+    $captureFrameEvent->everySecond();
+} elseif ($captureScheduleSeconds <= 2) {
+    $captureFrameEvent->everyTwoSeconds();
+} elseif ($captureScheduleSeconds <= 5) {
+    $captureFrameEvent->everyFiveSeconds();
+} elseif ($captureScheduleSeconds <= 10) {
+    $captureFrameEvent->everyTenSeconds();
+} elseif ($captureScheduleSeconds <= 15) {
+    $captureFrameEvent->everyFifteenSeconds();
+} elseif ($captureScheduleSeconds <= 20) {
+    $captureFrameEvent->everyTwentySeconds();
+} elseif ($captureScheduleSeconds <= 30) {
+    $captureFrameEvent->everyThirtySeconds();
+} else {
+    $captureFrameEvent->everyMinute();
+}
