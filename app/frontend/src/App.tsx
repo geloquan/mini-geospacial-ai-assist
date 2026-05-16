@@ -19,7 +19,7 @@ import './App.css'
 const TOKEN_KEY = 'mini_geospatial_auth_token'
 const CATALOG_PAGE_SIZE = 10
 const EMPTY_CATALOG_ROWS: Record<string, unknown>[] = []
-const RTSP_URL_PATTERN = /^rtsp:\/\/.+/i
+const RTSP_URL_REGEX_CASE_INSENSITIVE = /^rtsp:\/\/.+/i
 
 type DashboardView = 'overview' | 'locations' | 'cameraSources' | 'imageProcessors' | 'rawDataCollectionSettings' | 'catalog'
 type LocationEditorMode = 'list' | 'create' | 'edit'
@@ -635,7 +635,7 @@ function App() {
     if (!token) { setCameraSourceFormError('Please login first.'); return }
     if (!cameraSourceForm.locationId) { setCameraSourceFormError('Location is required.'); return }
     const liveFeedUrl = cameraSourceForm.liveFeedUrl.trim()
-    if (liveFeedUrl && !RTSP_URL_PATTERN.test(liveFeedUrl)) {
+    if (liveFeedUrl && !RTSP_URL_REGEX_CASE_INSENSITIVE.test(liveFeedUrl)) {
       setCameraSourceFormError('Live Feed URL must start with rtsp://.')
       return
     }
@@ -1273,7 +1273,7 @@ function App() {
                       </div>
                       <div className="form-field">
                         <label className="form-label">Live Feed URL</label>
-                        <input className="form-input" type="url" value={cameraSourceForm.liveFeedUrl} onChange={(e) => setCameraSourceForm((c) => ({ ...c, liveFeedUrl: e.target.value }))} placeholder="rtsp://..." pattern="rtsp://.*" title="Live Feed URL must start with rtsp://" />
+                        <input className="form-input" type="url" value={cameraSourceForm.liveFeedUrl} onChange={(e) => setCameraSourceForm((c) => ({ ...c, liveFeedUrl: e.target.value }))} placeholder="rtsp://..." pattern="rtsp://.+" title="Live Feed URL must start with rtsp://" />
                       </div>
                       <div className="form-field">
                         <label className="form-label">Vendor</label>
