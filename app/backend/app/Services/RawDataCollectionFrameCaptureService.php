@@ -7,7 +7,9 @@ use App\Models\RawDataCollectionSetting;
 use FFMpeg\Coordinate\TimeCode;
 use FFMpeg\FFMpeg;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Throwable;
 
 class RawDataCollectionFrameCaptureService
@@ -64,7 +66,12 @@ class RawDataCollectionFrameCaptureService
             return false;
         }
 
-        $framesDirectory = trim($storageDestination, '/').'/frames';
+        $normalizedStorageDestination = $this->normalizeStorageDestination($storageDestination);
+        if ($normalizedStorageDestination === null) {
+            return false;
+        }
+
+        $framesDirectory = $normalizedStorageDestination.'/frames';
         Storage::disk('local')->makeDirectory($framesDirectory);
 
         $existingFramePaths = $this->listFramePaths($framesDirectory);
@@ -77,7 +84,7 @@ class RawDataCollectionFrameCaptureService
             return false;
         }
 
-        $newFrameRelativePath = $framesDirectory.'/frame_'.now()->format('Ymd_His_u').'.jpg';
+        $newFrameRelativePath = $framesDirectory.'/frame_'.now()->format('Ymd_His_u').'_'.Str::uuid().'.jpg';
         $newFrameAbsolutePath = Storage::disk('local')->path($newFrameRelativePath);
 
         $ffmpeg = FFMpeg::create($this->buildFfmpegConfiguration($cameraSource));
@@ -85,6 +92,12 @@ class RawDataCollectionFrameCaptureService
         try {
             $ffmpeg->open($liveFeedUrl)->frame(TimeCode::fromSeconds(0))->save($newFrameAbsolutePath);
         } catch (Throwable $throwable) {
+            Log::warning('Failed to capture camera frame.', [
+                'raw_data_collection_setting_id' => $setting->id,
+                'camera_source_id' => $cameraSource->id,
+                'error' => $throwable->getMessage(),
+            ]);
+
             return false;
         }
 
@@ -265,6 +278,25 @@ class RawDataCollectionFrameCaptureService
         $mimeType = mime_content_type($absolutePath);
 
         return is_string($mimeType) && str_starts_with($mimeType, 'image/');
+    }
+
+    private function normalizeStorageDestination(string $storageDestination): ?string
+    {
+        $normalizedStorageDestination = trim(str_replace('\\', '/', $storageDestination), '/');
+
+        if ($normalizedStorageDestination === '') {
+            return null;
+        }
+
+        if (str_contains($normalizedStorageDestination, '..')) {
+            return null;
+        }
+
+        if (preg_match('/^[A-Za-z0-9._\/-]+$/', $normalizedStorageDestination) !== 1) {
+            return null;
+        }
+
+        return $normalizedStorageDestination;
     }
 
     /**

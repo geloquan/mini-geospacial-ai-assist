@@ -30,5 +30,5 @@ Artisan::command('raw-data-collection:capture-frames {rawDataCollectionSetting?}
 })->purpose('Capture image frames from camera sources using raw data collection settings.');
 
 Schedule::command('raw-data-collection:capture-frames')
-    ->everySecond()
+    ->everyFiveSeconds()
     ->withoutOverlapping();
