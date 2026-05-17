@@ -1,5 +1,6 @@
 <?php
 
+use App\Jobs\CollectRawDataFramesJob;
 use App\Services\RawDataCollectionFrameCaptureService;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
@@ -42,6 +43,6 @@ Artisan::command('raw-data-collection:capture-frames-forever {--sleep=5}', funct
     }
 })->purpose('Continuously capture image frames without requiring schedule:run.');
 
-Schedule::command('raw-data-collection:capture-frames')
-    ->withoutOverlapping(1)
-    ->everySecond();
+Schedule::job(new CollectRawDataFramesJob())
+    ->withoutOverlapping(10)
+    ->everyTenMinutes();

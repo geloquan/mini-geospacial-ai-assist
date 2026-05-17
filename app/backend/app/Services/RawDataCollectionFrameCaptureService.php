@@ -17,6 +17,7 @@ use Throwable;
 class RawDataCollectionFrameCaptureService
 {
   private const STATUS_SEPARATOR = '|';
+  private const CAPTURE_WINDOW_SLEEP_SECONDS = 1;
 
   public function captureScheduled(): int
   {
@@ -40,6 +41,28 @@ class RawDataCollectionFrameCaptureService
           }
         }
       });
+
+    return $capturedCount;
+  }
+
+  public function captureScheduledWindow(int $windowSeconds = 600): int
+  {
+    $normalizedWindowSeconds = max(1, $windowSeconds);
+    $capturedCount = 0;
+    $windowStartedAt = microtime(true);
+
+    while (true) {
+      $capturedCount += $this->captureScheduled();
+
+      $elapsedSeconds = (int) floor(microtime(true) - $windowStartedAt);
+      $remainingSeconds = $normalizedWindowSeconds - $elapsedSeconds;
+
+      if ($remainingSeconds <= 0) {
+        break;
+      }
+
+      sleep(min(self::CAPTURE_WINDOW_SLEEP_SECONDS, $remainingSeconds));
+    }
 
     return $capturedCount;
   }
@@ -111,13 +134,13 @@ class RawDataCollectionFrameCaptureService
     $framesDirectory = $normalizedStorageDestination . '/frames';
     Storage::disk('local')->makeDirectory($framesDirectory);
 
-    $existingFramePaths = $this->listFramePaths($framesDirectory);
+    $existingFrames = $this->listFrameMetadata($framesDirectory);
 
-    if (!$forceCapture && !$this->isDueForCapture($setting, $existingFramePaths, $cameraSource)) {
+    if (!$forceCapture && !$this->isDueForCapture($setting, $existingFrames, $cameraSource)) {
       return false;
     }
 
-    if (!$this->canCaptureNewFrame($setting, $existingFramePaths)) {
+    if (!$this->canCaptureNewFrame($setting, $existingFrames)) {
       $this->logCameraSourceHealth(
         $cameraSource,
         'configuration_error',
@@ -166,7 +189,12 @@ class RawDataCollectionFrameCaptureService
       return false;
     }
 
-    $this->enforceRetentionLimits($setting, $this->listFramePaths($framesDirectory));
+    $existingFrames[] = [
+      'path' => $newFrameRelativePath,
+      'last_modified' => Storage::disk('local')->lastModified($newFrameRelativePath),
+      'size' => Storage::disk('local')->size($newFrameRelativePath),
+    ];
+    $this->enforceRetentionLimits($setting, $existingFrames);
     $delay = $this->elapsedCaptureDelay($captureStartedAt);
     $this->logCameraSourceHealth(
       $cameraSource,
@@ -179,53 +207,52 @@ class RawDataCollectionFrameCaptureService
   }
 
   /**
-   * @param array<int, string> $framePaths
+   * @param array<int, array{path: string, last_modified: int, size: int}> $frames
    */
   private function isDueForCapture(
     RawDataCollectionSetting $setting,
-    array                    $framePaths,
+    array                    $frames,
     CameraSource             $cameraSource
   ): bool
   {
-    if ($framePaths === []) {
+    if ($frames === []) {
       return true;
     }
 
-    $lastFramePath = $this->latestFramePath($framePaths);
-    if ($lastFramePath === null) {
+    $latestFrameLastModified = $this->latestFrameLastModified($frames);
+    if ($latestFrameLastModified === null) {
       return true;
     }
 
-    $lastModified = Storage::disk('local')->lastModified($lastFramePath);
-    $elapsedSeconds = time() - $lastModified;
+    $elapsedSeconds = time() - $latestFrameLastModified;
 
     return $elapsedSeconds >= $this->samplingIntervalToSeconds($setting, $cameraSource);
   }
 
   /**
-   * @param array<int, string> $framePaths
+   * @param array<int, array{path: string, last_modified: int, size: int}> $frames
    */
-  private function canCaptureNewFrame(RawDataCollectionSetting $setting, array $framePaths): bool
+  private function canCaptureNewFrame(RawDataCollectionSetting $setting, array $frames): bool
   {
     if ($setting->lifecycle_strategy !== 'stop_on_condition') {
       return true;
     }
 
-    $currentImageCount = count($framePaths);
+    $currentImageCount = count($frames);
     if ($currentImageCount >= $setting->max_image_count) {
       return false;
     }
 
-    $currentBytes = $this->calculateTotalBytes($framePaths);
+    $currentBytes = $this->totalBytesFromMetadata($frames);
     $maxBytes = $this->maxStorageBytes($setting);
 
     return $currentBytes < $maxBytes;
   }
 
   /**
-   * @param array<int, string> $framePaths
+   * @param array<int, array{path: string, last_modified: int, size: int}> $frames
    */
-  private function enforceRetentionLimits(RawDataCollectionSetting $setting, array $framePaths): void
+  private function enforceRetentionLimits(RawDataCollectionSetting $setting, array $frames): void
   {
     if ($setting->lifecycle_strategy !== 'replace_oldest_on_condition') {
       return;
@@ -234,18 +261,18 @@ class RawDataCollectionFrameCaptureService
     $maxBytes = $this->maxStorageBytes($setting);
 
     while (
-      count($framePaths) > $setting->max_image_count
-      || $this->calculateTotalBytes($framePaths) > $maxBytes
+      count($frames) > $setting->max_image_count
+      || $this->totalBytesFromMetadata($frames) > $maxBytes
     ) {
-      $oldestFramePath = $this->oldestFramePath($framePaths);
-      if ($oldestFramePath === null) {
+      $oldestFrame = $this->oldestFrameMetadata($frames);
+      if ($oldestFrame === null) {
         return;
       }
 
-      Storage::disk('local')->delete($oldestFramePath);
-      $framePaths = array_values(array_filter(
-        $framePaths,
-        static fn(string $path): bool => $path !== $oldestFramePath
+      Storage::disk('local')->delete($oldestFrame['path']);
+      $frames = array_values(array_filter(
+        $frames,
+        static fn(array $frame): bool => $frame['path'] !== $oldestFrame['path']
       ));
     }
   }
@@ -316,17 +343,11 @@ class RawDataCollectionFrameCaptureService
   }
 
   /**
-   * @param array<int, string> $framePaths
+   * @param array<int, array{path: string, last_modified: int, size: int}> $frames
    */
-  private function calculateTotalBytes(array $framePaths): int
+  private function totalBytesFromMetadata(array $frames): int
   {
-    return array_reduce($framePaths, function (int $carry, string $path): int {
-      if (!Storage::disk('local')->exists($path)) {
-        return $carry;
-      }
-
-      return $carry + Storage::disk('local')->size($path);
-    }, 0);
+    return array_reduce($frames, static fn(int $carry, array $frame): int => $carry + $frame['size'], 0);
   }
 
   private function maxStorageBytes(RawDataCollectionSetting $setting): int
@@ -425,9 +446,9 @@ class RawDataCollectionFrameCaptureService
   }
 
   /**
-   * @return array<int, string>
+   * @return array<int, array{path: string, last_modified: int, size: int}>
    */
-  private function listFramePaths(string $framesDirectory): array
+  private function listFrameMetadata(string $framesDirectory): array
   {
     return collect(Storage::disk('local')->allFiles($framesDirectory))
       ->filter(static function (string $path): bool {
@@ -437,27 +458,33 @@ class RawDataCollectionFrameCaptureService
         return str_starts_with($filename, 'frame_')
           && in_array($extension, ['jpg', 'jpeg', 'png', 'webp', 'bmp', 'gif', 'tif', 'tiff'], true);
       })
+      ->map(static function (string $path): array {
+        return [
+          'path' => $path,
+          'last_modified' => Storage::disk('local')->lastModified($path),
+          'size' => Storage::disk('local')->size($path),
+        ];
+      })
       ->values()
       ->all();
   }
 
   /**
-   * @param array<int, string> $framePaths
+   * @param array<int, array{path: string, last_modified: int, size: int}> $frames
    */
-  private function latestFramePath(array $framePaths): ?string
+  private function latestFrameLastModified(array $frames): ?int
   {
-    return collect($framePaths)
-      ->sortByDesc(static fn(string $path): int => Storage::disk('local')->lastModified($path))
-      ->first();
+    return collect($frames)
+      ->max('last_modified');
   }
 
   /**
-   * @param array<int, string> $framePaths
+   * @param array<int, array{path: string, last_modified: int, size: int}> $frames
    */
-  private function oldestFramePath(array $framePaths): ?string
+  private function oldestFrameMetadata(array $frames): ?array
   {
-    return collect($framePaths)
-      ->sortBy(static fn(string $path): int => Storage::disk('local')->lastModified($path))
+    return collect($frames)
+      ->sortBy('last_modified')
       ->first();
   }
 }
