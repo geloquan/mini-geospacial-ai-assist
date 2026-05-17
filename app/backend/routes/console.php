@@ -42,24 +42,6 @@ Artisan::command('raw-data-collection:capture-frames-forever {--sleep=5}', funct
     }
 })->purpose('Continuously capture image frames without requiring schedule:run.');
 
-$captureScheduleSeconds = max(1, (int) env('RAW_DATA_COLLECTION_CAPTURE_SCHEDULE_SECONDS', 5));
-$captureFrameEvent = Schedule::command('raw-data-collection:capture-frames')
-    ->withoutOverlapping();
-
-if ($captureScheduleSeconds <= 1) {
-    $captureFrameEvent->everySecond();
-} elseif ($captureScheduleSeconds <= 2) {
-    $captureFrameEvent->everyTwoSeconds();
-} elseif ($captureScheduleSeconds <= 5) {
-    $captureFrameEvent->everyFiveSeconds();
-} elseif ($captureScheduleSeconds <= 10) {
-    $captureFrameEvent->everyTenSeconds();
-} elseif ($captureScheduleSeconds <= 15) {
-    $captureFrameEvent->everyFifteenSeconds();
-} elseif ($captureScheduleSeconds <= 20) {
-    $captureFrameEvent->everyTwentySeconds();
-} elseif ($captureScheduleSeconds <= 30) {
-    $captureFrameEvent->everyThirtySeconds();
-} else {
-    $captureFrameEvent->everyMinute();
-}
+Schedule::command('raw-data-collection:capture-frames')
+    ->withoutOverlapping()
+    ->everySecond();
