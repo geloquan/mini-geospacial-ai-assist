@@ -18,6 +18,7 @@ import './App.css'
 
 const TOKEN_KEY = 'mini_geospatial_auth_token'
 const CATALOG_PAGE_SIZE = 10
+const GALLERY_PAGE_SIZE = 12
 const EMPTY_CATALOG_ROWS: Record<string, unknown>[] = []
 
 type DashboardView = 'overview' | 'locations' | 'cameraSources' | 'imageProcessors' | 'rawDataCollectionSettings' | 'catalog'
@@ -121,6 +122,35 @@ const parseCollectionStatus = (
   return { collectionState, isCollecting, collectionMessage }
 }
 
+const formatDateTime = (value: string | null | undefined): string => {
+  if (!value) {
+    return '—'
+  }
+
+  const parsedDate = new Date(value)
+  if (Number.isNaN(parsedDate.getTime())) {
+    return value
+  }
+
+  return parsedDate.toLocaleString()
+}
+
+const formatFileSize = (value: number | null | undefined): string => {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
+    return '—'
+  }
+
+  if (value < 1024) {
+    return `${value} B`
+  }
+
+  if (value < 1024 * 1024) {
+    return `${(value / 1024).toFixed(1)} KB`
+  }
+
+  return `${(value / (1024 * 1024)).toFixed(2)} MB`
+}
+
 function App() {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
@@ -161,6 +191,10 @@ function App() {
   const [selectedRawDataCollectionSettingsPage, setSelectedRawDataCollectionSettingsPage] = useState(1)
   const [selectedRawDataCollectionCameraSourceId, setSelectedRawDataCollectionCameraSourceId] = useState<number | null>(null)
   const [selectedRawDataCollectionSettingId, setSelectedRawDataCollectionSettingId] = useState<number | null>(null)
+  const [selectedRawDataGalleryPage, setSelectedRawDataGalleryPage] = useState(1)
+  const [rawDataGalleryFromDateTime, setRawDataGalleryFromDateTime] = useState('')
+  const [rawDataGalleryToDateTime, setRawDataGalleryToDateTime] = useState('')
+  const [selectedGalleryImageIndex, setSelectedGalleryImageIndex] = useState<number | null>(null)
 
   const [selectedCatalogEndpoint, setSelectedCatalogEndpoint] = useState<CatalogResourceEndpoint>('catalog/locations')
   const [selectedCatalogPage, setSelectedCatalogPage] = useState(1)
@@ -209,7 +243,14 @@ function App() {
     data: rawDataCollectionGalleryData,
     error: rawDataCollectionGalleryError,
     isFetching: isRawDataCollectionGalleryFetching,
-  } = useRawDataCollectionGalleryQuery(token, selectedRawDataCollectionSettingId)
+  } = useRawDataCollectionGalleryQuery(
+    token,
+    selectedRawDataCollectionSettingId,
+    selectedRawDataGalleryPage,
+    GALLERY_PAGE_SIZE,
+    rawDataGalleryFromDateTime,
+    rawDataGalleryToDateTime,
+  )
 
   const modules = dashboardData?.modules ?? []
   const locationCount = dashboardData?.locationCount ?? 0
@@ -1593,6 +1634,10 @@ function App() {
                               onClick={() => {
                                 setSelectedRawDataCollectionCameraSourceId(cameraNode.id)
                                 setSelectedRawDataCollectionSettingId(null)
+                                setSelectedRawDataGalleryPage(1)
+                                setRawDataGalleryFromDateTime('')
+                                setRawDataGalleryToDateTime('')
+                                setSelectedGalleryImageIndex(null)
                               }}
                             >
                               Camera Source: {cameraNode.sourceName} ({cameraNode.isCollecting ? 'Collecting' : 'Not collecting'})
@@ -1604,7 +1649,11 @@ function App() {
                                     key={rawDataCollectionSetting.id}
                                     className={`raw-data-tree-btn child${selectedRawDataCollectionSettingId === rawDataCollectionSetting.id ? ' active' : ''}`}
                                     type="button"
-                                    onClick={() => setSelectedRawDataCollectionSettingId(rawDataCollectionSetting.id)}
+                                    onClick={() => {
+                                      setSelectedRawDataCollectionSettingId(rawDataCollectionSetting.id)
+                                      setSelectedRawDataGalleryPage(1)
+                                      setSelectedGalleryImageIndex(null)
+                                    }}
                                   >
                                     Raw Data Collection #{rawDataCollectionSetting.id}
                                   </button>
@@ -1705,18 +1754,160 @@ function App() {
                           </div>
                         </div>
 
-                        {rawDataCollectionGalleryData.imagePaths.length === 0 ? (
+                        <div className="catalog-toolbar" style={{ marginBottom: 0 }}>
+                          <label className="form-label" style={{ marginBottom: 0 }}>From</label>
+                          <input
+                            className="form-input"
+                            type="datetime-local"
+                            value={rawDataGalleryFromDateTime}
+                            onChange={(event) => {
+                              setRawDataGalleryFromDateTime(event.target.value)
+                              setSelectedRawDataGalleryPage(1)
+                              setSelectedGalleryImageIndex(null)
+                            }}
+                          />
+                          <label className="form-label" style={{ marginBottom: 0 }}>To</label>
+                          <input
+                            className="form-input"
+                            type="datetime-local"
+                            value={rawDataGalleryToDateTime}
+                            onChange={(event) => {
+                              setRawDataGalleryToDateTime(event.target.value)
+                              setSelectedRawDataGalleryPage(1)
+                              setSelectedGalleryImageIndex(null)
+                            }}
+                          />
+                          <button
+                            className="btn btn-ghost"
+                            type="button"
+                            onClick={() => {
+                              setRawDataGalleryFromDateTime('')
+                              setRawDataGalleryToDateTime('')
+                              setSelectedRawDataGalleryPage(1)
+                              setSelectedGalleryImageIndex(null)
+                            }}
+                            disabled={rawDataGalleryFromDateTime === '' && rawDataGalleryToDateTime === ''}
+                          >
+                            Clear Date/Time
+                          </button>
+                        </div>
+
+                        {rawDataCollectionGalleryData.frames.length === 0 ? (
                           <div className="empty-state" style={{ padding: '24px 12px' }}>
                             No images found in this raw data collection path.
                           </div>
                         ) : (
-                          <div className="raw-data-gallery-grid">
-                            {rawDataCollectionGalleryData.imagePaths.map((imagePath) => (
-                              <div key={imagePath} className="raw-data-gallery-item">
-                                <img src={buildRawDataImageUrl(imagePath)} alt={imagePath} className="raw-data-gallery-image" />
-                                <div className="raw-data-gallery-path">{imagePath}</div>
+                          <>
+                            <div className="raw-data-gallery-grid">
+                              {rawDataCollectionGalleryData.frames.map((frame, index) => (
+                                <button
+                                  key={frame.path}
+                                  type="button"
+                                  className="raw-data-gallery-item raw-data-gallery-item-btn"
+                                  onClick={() => setSelectedGalleryImageIndex(index)}
+                                >
+                                  <img
+                                    src={buildRawDataImageUrl(frame.path)}
+                                    alt={frame.fileName}
+                                    className="raw-data-gallery-image"
+                                  />
+                                  <div className="raw-data-gallery-details">
+                                    <div className="raw-data-gallery-path">{frame.path}</div>
+                                    <div className="raw-data-gallery-meta">Captured: {formatDateTime(frame.capturedAt)}</div>
+                                    <div className="raw-data-gallery-meta">
+                                      Resolution: {frame.width !== null && frame.height !== null ? `${frame.width}×${frame.height}` : '—'}
+                                    </div>
+                                    <div className="raw-data-gallery-meta">Size: {formatFileSize(frame.fileSizeBytes)}</div>
+                                    <div className="raw-data-gallery-meta">Type: {frame.mimeType ?? '—'}</div>
+                                  </div>
+                                </button>
+                              ))}
+                            </div>
+                            {rawDataCollectionGalleryData.pagination.lastPage > 1 && (
+                              <div className="pagination">
+                                <button
+                                  className="btn btn-ghost"
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedRawDataGalleryPage((current) => Math.max(1, current - 1))
+                                    setSelectedGalleryImageIndex(null)
+                                  }}
+                                  disabled={
+                                    rawDataCollectionGalleryData.pagination.currentPage <= 1 || isRawDataCollectionGalleryFetching
+                                  }
+                                >
+                                  ← Prev
+                                </button>
+                                <span className="page-info">
+                                  Page {rawDataCollectionGalleryData.pagination.currentPage} of {rawDataCollectionGalleryData.pagination.lastPage}
+                                  {' · '}
+                                  {rawDataCollectionGalleryData.pagination.total} frame(s)
+                                </span>
+                                <button
+                                  className="btn btn-ghost"
+                                  type="button"
+                                  onClick={() =>
+                                    {
+                                      setSelectedRawDataGalleryPage((current) =>
+                                        Math.min(rawDataCollectionGalleryData.pagination.lastPage, current + 1),
+                                      )
+                                      setSelectedGalleryImageIndex(null)
+                                    }}
+                                  disabled={
+                                    rawDataCollectionGalleryData.pagination.currentPage
+                                    >= rawDataCollectionGalleryData.pagination.lastPage || isRawDataCollectionGalleryFetching
+                                  }
+                                >
+                                  Next →
+                                </button>
                               </div>
-                            ))}
+                            )}
+                          </>
+                        )}
+
+                        {selectedGalleryImageIndex !== null && rawDataCollectionGalleryData.frames[selectedGalleryImageIndex] && (
+                          <div className="raw-data-gallery-viewer-overlay" role="dialog" aria-modal="true">
+                            <div className="raw-data-gallery-viewer">
+                              <div className="raw-data-gallery-viewer-toolbar">
+                                <button className="btn btn-ghost" type="button" onClick={() => setSelectedGalleryImageIndex(null)}>
+                                  Close
+                                </button>
+                                <span className="page-info">
+                                  {selectedGalleryImageIndex + 1} / {rawDataCollectionGalleryData.frames.length}
+                                </span>
+                              </div>
+                              <div className="raw-data-gallery-viewer-frame">
+                                <button
+                                  className="btn btn-ghost"
+                                  type="button"
+                                  onClick={() => setSelectedGalleryImageIndex((current) => (current === null ? null : Math.max(0, current - 1)))}
+                                  disabled={selectedGalleryImageIndex <= 0}
+                                >
+                                  ← Prev
+                                </button>
+                                <img
+                                  src={buildRawDataImageUrl(rawDataCollectionGalleryData.frames[selectedGalleryImageIndex].path)}
+                                  alt={rawDataCollectionGalleryData.frames[selectedGalleryImageIndex].fileName}
+                                  className="raw-data-gallery-viewer-image"
+                                />
+                                <button
+                                  className="btn btn-ghost"
+                                  type="button"
+                                  onClick={() =>
+                                    setSelectedGalleryImageIndex((current) =>
+                                      current === null
+                                        ? null
+                                        : Math.min(rawDataCollectionGalleryData.frames.length - 1, current + 1),
+                                    )}
+                                  disabled={selectedGalleryImageIndex >= rawDataCollectionGalleryData.frames.length - 1}
+                                >
+                                  Next →
+                                </button>
+                              </div>
+                              <div className="raw-data-gallery-viewer-caption">
+                                {rawDataCollectionGalleryData.frames[selectedGalleryImageIndex].path}
+                              </div>
+                            </div>
                           </div>
                         )}
                       </div>

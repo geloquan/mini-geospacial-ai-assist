@@ -30,4 +30,5 @@ From this folder:
 npm run dev
 npm run build
 composer test
+php artisan raw-data-collection:capture-frames-forever --sleep=5
 ```

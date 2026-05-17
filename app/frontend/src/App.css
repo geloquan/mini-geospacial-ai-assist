@@ -373,6 +373,12 @@ body { background: var(--bg); color: var(--text); font-family: var(--font-mono);
   overflow: hidden;
   background: var(--surface);
 }
+.raw-data-gallery-item-btn {
+  appearance: none;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+}
 .raw-data-gallery-image {
   width: 100%;
   height: 140px;
@@ -380,11 +386,61 @@ body { background: var(--bg); color: var(--text); font-family: var(--font-mono);
   background: #000;
   display: block;
 }
+.raw-data-gallery-details {
+  display: grid;
+  gap: 4px;
+  padding: 8px;
+}
 .raw-data-gallery-path {
   font-size: 10px;
   color: var(--text-muted);
-  padding: 8px;
-  border-top: 1px solid var(--border);
+  word-break: break-all;
+}
+.raw-data-gallery-meta {
+  font-size: 10px;
+  color: var(--text-dim);
+}
+
+.raw-data-gallery-viewer-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.72);
+  display: grid;
+  place-items: center;
+  z-index: 40;
+  padding: 16px;
+}
+.raw-data-gallery-viewer {
+  width: min(1100px, 96vw);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  padding: 12px;
+  display: grid;
+  gap: 10px;
+}
+.raw-data-gallery-viewer-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.raw-data-gallery-viewer-frame {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 10px;
+}
+.raw-data-gallery-viewer-image {
+  width: 100%;
+  max-height: 75vh;
+  object-fit: contain;
+  background: #000;
+  border-radius: var(--radius);
+}
+.raw-data-gallery-viewer-caption {
+  font-size: 10px;
+  color: var(--text-muted);
   word-break: break-all;
 }
 

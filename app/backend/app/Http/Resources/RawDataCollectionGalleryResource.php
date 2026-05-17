@@ -19,6 +19,9 @@ class RawDataCollectionGalleryResource extends JsonResource
             'gallery' => [
                 'storage_destination' => $this['gallery']['storage_destination'],
                 'image_paths' => $this['gallery']['image_paths'],
+                'frames' => $this['gallery']['frames'],
+                'pagination' => $this['gallery']['pagination'],
+                'filters' => $this['gallery']['filters'],
             ],
         ];
     }

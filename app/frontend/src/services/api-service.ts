@@ -196,6 +196,26 @@ type RawDataCollectionGalleryApiResponse = {
     gallery: {
       storage_destination: string
       image_paths: string[]
+      frames: Array<{
+        path: string
+        file_name: string
+        captured_at: string | null
+        last_modified_at: string | null
+        mime_type: string | null
+        file_size_bytes: number | null
+        width: number | null
+        height: number | null
+      }>
+      pagination: {
+        current_page: number
+        last_page: number
+        per_page: number
+        total: number
+      }
+      filters: {
+        from_datetime: string | null
+        to_datetime: string | null
+      }
     }
   }
 }
@@ -259,6 +279,26 @@ export type RawDataCollectionGalleryPayload = {
   location: RawDataCollectionGalleryLocation | null
   storageDestination: string
   imagePaths: string[]
+  frames: Array<{
+    path: string
+    fileName: string
+    capturedAt: string | null
+    lastModifiedAt: string | null
+    mimeType: string | null
+    fileSizeBytes: number | null
+    width: number | null
+    height: number | null
+  }>
+  pagination: {
+    currentPage: number
+    lastPage: number
+    perPage: number
+    total: number
+  }
+  filters: {
+    fromDateTime: string | null
+    toDateTime: string | null
+  }
 }
 
 const toNullableNumber = (value: number | string | null): number | null => {
@@ -622,9 +662,25 @@ export const loadCatalogTable = async (
 export const loadRawDataCollectionGallery = async (
   token: string,
   rawDataCollectionSettingId: number,
+  options?: {
+    page?: number
+    perPage?: number
+    fromDateTime?: string
+    toDateTime?: string
+  },
 ): Promise<RawDataCollectionGalleryPayload> => {
+  const query = new URLSearchParams()
+  query.set('page', String(options?.page ?? 1))
+  query.set('per_page', String(options?.perPage ?? 12))
+  if (options?.fromDateTime) {
+    query.set('from_datetime', options.fromDateTime)
+  }
+  if (options?.toDateTime) {
+    query.set('to_datetime', options.toDateTime)
+  }
+
   const payload = await requestJson<RawDataCollectionGalleryApiResponse>(
-    `/catalog/raw-data-collection-settings/${rawDataCollectionSettingId}/gallery`,
+    `/catalog/raw-data-collection-settings/${rawDataCollectionSettingId}/gallery?${query.toString()}`,
     {
       headers: {
         Authorization: `Bearer ${token}`,
@@ -691,5 +747,27 @@ export const loadRawDataCollectionGallery = async (
         },
     storageDestination: payload.data.gallery.storage_destination,
     imagePaths: Array.isArray(payload.data.gallery.image_paths) ? payload.data.gallery.image_paths : [],
+    frames: Array.isArray(payload.data.gallery.frames)
+      ? payload.data.gallery.frames.map((frame) => ({
+          path: frame.path,
+          fileName: frame.file_name,
+          capturedAt: frame.captured_at,
+          lastModifiedAt: frame.last_modified_at,
+          mimeType: frame.mime_type,
+          fileSizeBytes: frame.file_size_bytes,
+          width: frame.width,
+          height: frame.height,
+        }))
+      : [],
+    pagination: {
+      currentPage: payload.data.gallery.pagination.current_page,
+      lastPage: payload.data.gallery.pagination.last_page,
+      perPage: payload.data.gallery.pagination.per_page,
+      total: payload.data.gallery.pagination.total,
+    },
+    filters: {
+      fromDateTime: payload.data.gallery.filters.from_datetime,
+      toDateTime: payload.data.gallery.filters.to_datetime,
+    },
   }
 }

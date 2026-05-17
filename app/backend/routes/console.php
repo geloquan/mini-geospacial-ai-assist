@@ -29,6 +29,19 @@ Artisan::command('raw-data-collection:capture-frames {rawDataCollectionSetting?}
     return 0;
 })->purpose('Capture image frames from camera sources using raw data collection settings.');
 
+Artisan::command('raw-data-collection:capture-frames-forever {--sleep=5}', function (
+    RawDataCollectionFrameCaptureService $frameCaptureService
+): int {
+    $sleepSeconds = max(1, (int) $this->option('sleep'));
+    $this->info("Starting forever frame capture loop (sleep: {$sleepSeconds}s). Press Ctrl+C to stop.");
+
+    while (true) {
+        $capturedCount = $frameCaptureService->captureScheduled();
+        $this->line(now()->toDateTimeString() . " Captured {$capturedCount} frame(s).");
+        sleep($sleepSeconds);
+    }
+})->purpose('Continuously capture image frames without requiring schedule:run.');
+
 $captureScheduleSeconds = max(1, (int) env('RAW_DATA_COLLECTION_CAPTURE_SCHEDULE_SECONDS', 5));
 $captureFrameEvent = Schedule::command('raw-data-collection:capture-frames')
     ->withoutOverlapping();

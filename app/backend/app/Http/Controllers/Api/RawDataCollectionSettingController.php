@@ -37,10 +37,21 @@ class RawDataCollectionSettingController extends Controller
         return new RawDataCollectionSettingResource($rawDataCollectionSetting);
     }
 
-    public function gallery(RawDataCollectionSetting $rawDataCollectionSetting): RawDataCollectionGalleryResource
+    public function gallery(Request $request, RawDataCollectionSetting $rawDataCollectionSetting): RawDataCollectionGalleryResource
     {
+        $page = max(1, (int) $request->query('page', 1));
+        $perPage = max(1, min((int) $request->query('per_page', 12), 100));
+        $fromDateTime = $request->query('from_datetime');
+        $toDateTime = $request->query('to_datetime');
+
         return new RawDataCollectionGalleryResource(
-            $this->rawDataCollectionSettingService->buildGalleryPayload($rawDataCollectionSetting)
+            $this->rawDataCollectionSettingService->buildGalleryPayload(
+                $rawDataCollectionSetting,
+                $page,
+                $perPage,
+                is_string($fromDateTime) ? $fromDateTime : null,
+                is_string($toDateTime) ? $toDateTime : null,
+            )
         );
     }
 
