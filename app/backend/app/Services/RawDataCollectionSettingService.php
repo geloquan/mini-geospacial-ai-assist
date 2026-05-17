@@ -80,8 +80,8 @@ class RawDataCollectionSettingService
 
         return in_array($extension, ['jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp', 'tif', 'tiff'], true);
       })
-      ->map(fn(string $path): ?array => $this->buildGalleryFramePayload($path))
-      ->filter(static fn(?array $frame): bool => $frame !== null)
+      ->map(fn (string $path): ?array => $this->buildGalleryFramePayload($path))
+      ->filter(static fn (?array $frame): bool => $frame !== null)
       ->sortByDesc('captured_at_timestamp')
       ->values()
       ->all();
@@ -115,7 +115,7 @@ class RawDataCollectionSettingService
     $paginatedFrameItems = $filteredFrameItems->forPage($currentPage, $normalizedPerPage)->values();
     $imagePaths = $paginatedFrameItems
       ->pluck('path')
-      ->filter(static fn(mixed $path): bool => is_string($path))
+      ->filter(static fn (mixed $path): bool => is_string($path))
       ->all();
 
     return [
