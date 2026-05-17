@@ -71,7 +71,6 @@ class RawDataCollectionFrameCaptureService
   private function captureScheduledWithHints(array &$nextCaptureAtBySetting): int
   {
     $capturedCount = 0;
-    $currentTimestamp = time();
     $activeSettingIds = [];
 
     RawDataCollectionSetting::query()
@@ -81,7 +80,7 @@ class RawDataCollectionFrameCaptureService
       ->whereHas('cameraSource', static function ($query): void {
         $query->where('is_active', true);
       })
-      ->chunkById(100, function (Collection $settings) use (&$capturedCount, &$nextCaptureAtBySetting, $currentTimestamp, &$activeSettingIds): void {
+      ->chunkById(100, function (Collection $settings) use (&$capturedCount, &$nextCaptureAtBySetting, &$activeSettingIds): void {
         foreach ($settings as $setting) {
           if (!($setting instanceof RawDataCollectionSetting)) {
             continue;
@@ -90,7 +89,7 @@ class RawDataCollectionFrameCaptureService
           $settingId = (int) $setting->id;
           $activeSettingIds[] = $settingId;
           $nextCaptureAt = $nextCaptureAtBySetting[$settingId] ?? null;
-          if (is_int($nextCaptureAt) && $nextCaptureAt > $currentTimestamp) {
+          if (is_int($nextCaptureAt) && $nextCaptureAt > time()) {
             continue;
           }
 
@@ -101,7 +100,7 @@ class RawDataCollectionFrameCaptureService
           $capturedCount++;
           $cameraSource = $setting->cameraSource;
           if ($cameraSource instanceof CameraSource) {
-            $nextCaptureAtBySetting[$settingId] = $currentTimestamp + $this->samplingIntervalToSeconds($setting, $cameraSource);
+            $nextCaptureAtBySetting[$settingId] = time() + $this->samplingIntervalToSeconds($setting, $cameraSource);
           }
         }
       });
@@ -498,7 +497,8 @@ class RawDataCollectionFrameCaptureService
    */
   private function buildCapturedFrameMetadata(string $relativePath, string $absolutePath): array
   {
-    $stats = @stat($absolutePath);
+    clearstatcache(true, $absolutePath);
+    $stats = stat($absolutePath);
 
     if (is_array($stats)) {
       $lastModified = $stats['mtime'] ?? null;
@@ -512,6 +512,11 @@ class RawDataCollectionFrameCaptureService
         ];
       }
     }
+
+    Log::warning('Unable to read captured frame metadata from file stats.', [
+      'frame_path' => $relativePath,
+      'absolute_path' => $absolutePath,
+    ]);
 
     return [
       'path' => $relativePath,

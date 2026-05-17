@@ -11,7 +11,7 @@ class CollectRawDataFramesJob implements ShouldQueue
 {
     use Queueable;
 
-    public int $timeout;
+    public int $timeout = 660;
     public string $queue = 'raw-data-collection';
     private int $windowSeconds;
 
