@@ -23,6 +23,7 @@ class RawDataCollectionSettingResource extends JsonResource
             'frame_sampling_interval_unit' => $this->frame_sampling_interval_unit,
             'collection_context_notes' => $this->collection_context_notes,
             'collection_type' => $this->collection_type,
+            'is_active' => $this->is_active,
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];

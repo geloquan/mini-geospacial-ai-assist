@@ -275,6 +275,7 @@ class RawDataCollectionSettingService
         'frame_sampling_interval_unit' => $rawDataCollectionSetting->frame_sampling_interval_unit,
         'collection_context_notes' => $rawDataCollectionSetting->collection_context_notes,
         'collection_type' => $rawDataCollectionSetting->collection_type,
+        'is_active' => $rawDataCollectionSetting->is_active,
         'created_at' => $rawDataCollectionSetting->created_at?->toIso8601String(),
         'updated_at' => $rawDataCollectionSetting->updated_at?->toIso8601String(),
       ],

@@ -25,6 +25,10 @@ class RawDataCollectionFrameCaptureService
     RawDataCollectionSetting::query()
       ->with('cameraSource.location')
       ->where('collection_type', 'scheduled_capture')
+      ->where('is_active', true)
+      ->whereHas('cameraSource', static function ($query): void {
+        $query->where('is_active', true);
+      })
       ->chunkById(100, function (Collection $settings) use (&$capturedCount): void {
         foreach ($settings as $setting) {
           if (!($setting instanceof RawDataCollectionSetting)) {
@@ -53,6 +57,15 @@ class RawDataCollectionFrameCaptureService
   {
     $cameraSource = $setting->cameraSource;
     if (!($cameraSource instanceof CameraSource)) {
+      return false;
+    }
+
+    if (!$setting->is_active) {
+      $this->logCameraSourceHealth(
+        $cameraSource,
+        'inactive',
+        'Raw data collection setting is inactive and cannot collect frames.'
+      );
       return false;
     }
 

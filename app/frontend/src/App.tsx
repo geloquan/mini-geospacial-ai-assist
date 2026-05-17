@@ -49,6 +49,7 @@ type RawDataCollectionSettingFormState = {
   frameSamplingIntervalUnit: 'frames' | 'seconds'
   collectionContextNotes: string
   collectionType: 'scheduled_capture' | 'event_triggered_capture' | 'manual_capture'
+  isActive: '1' | '0'
 }
 
 const INITIAL_LOCATION_FORM: LocationFormState = {
@@ -73,6 +74,7 @@ const INITIAL_RAW_DATA_COLLECTION_SETTING_FORM: RawDataCollectionSettingFormStat
   frameSamplingIntervalUnit: 'seconds',
   collectionContextNotes: '',
   collectionType: 'manual_capture',
+  isActive: '1',
 }
 
 const CATALOG_TABLES: Array<{ endpoint: CatalogResourceEndpoint; label: string }> = [
@@ -460,6 +462,7 @@ function App() {
           const frameSamplingIntervalUnit = row.frame_sampling_interval_unit
           const collectionContextNotes = row.collection_context_notes
           const collectionType = row.collection_type
+          const isActive = row.is_active
 
           if (
             typeof id !== 'number' ||
@@ -506,6 +509,12 @@ function App() {
               collectionType === 'manual_capture'
                 ? collectionType
                 : 'manual_capture',
+            isActive:
+              typeof isActive === 'boolean'
+                ? isActive
+                : typeof isActive === 'number'
+                  ? isActive === 1
+                  : String(isActive) === '1',
           }
         })
         .filter(
@@ -522,6 +531,7 @@ function App() {
             frameSamplingIntervalUnit: 'frames' | 'seconds'
             collectionContextNotes: string
             collectionType: 'scheduled_capture' | 'event_triggered_capture' | 'manual_capture'
+            isActive: boolean
           } => rawDataCollectionSetting !== null,
         ),
     [rawDataCollectionSettingsCatalogData?.rows],
@@ -880,6 +890,7 @@ function App() {
       frameSamplingIntervalUnit: selectedRawDataCollectionSetting.frameSamplingIntervalUnit,
       collectionContextNotes: selectedRawDataCollectionSetting.collectionContextNotes,
       collectionType: selectedRawDataCollectionSetting.collectionType,
+      isActive: selectedRawDataCollectionSetting.isActive ? '1' : '0',
     })
     setRawDataCollectionSettingFormError('')
     setRawDataCollectionSettingFormSuccess('')
@@ -916,6 +927,7 @@ function App() {
         frameSamplingIntervalUnit: rawDataCollectionSettingForm.frameSamplingIntervalUnit,
         collectionContextNotes: rawDataCollectionSettingForm.collectionContextNotes || null,
         collectionType: rawDataCollectionSettingForm.collectionType,
+        isActive: rawDataCollectionSettingForm.isActive === '1',
       }
 
       if (rawDataCollectionSettingEditorMode === 'edit' && editingRawDataCollectionSettingId !== null) {
@@ -2082,6 +2094,21 @@ function App() {
                           <option value="scheduled_capture">Scheduled capture</option>
                           <option value="event_triggered_capture">Event-triggered capture</option>
                           <option value="manual_capture">Manual capture</option>
+                        </select>
+                      </div>
+                      <div className="form-field">
+                        <label className="form-label">Collection Status<span className="form-required">*</span></label>
+                        <select
+                          className="form-input"
+                          value={rawDataCollectionSettingForm.isActive}
+                          onChange={(e) =>
+                            setRawDataCollectionSettingForm((current) => ({
+                              ...current,
+                              isActive: e.target.value as '1' | '0',
+                            }))}
+                        >
+                          <option value="1">Active</option>
+                          <option value="0">Inactive</option>
                         </select>
                       </div>
                       <div className="form-field" style={{ gridColumn: '1 / -1' }}>

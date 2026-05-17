@@ -16,9 +16,20 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'frame_sampling_interval_unit',
     'collection_context_notes',
     'collection_type',
+    'is_active',
 ])]
 class RawDataCollectionSetting extends Model
 {
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'is_active' => 'boolean',
+        ];
+    }
+
     /**
      * @return BelongsTo<CameraSource, $this>
      */

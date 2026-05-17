@@ -103,6 +103,7 @@ export type CreateRawDataCollectionSettingInput = {
   frameSamplingIntervalUnit: 'frames' | 'seconds'
   collectionContextNotes: string | null
   collectionType: 'scheduled_capture' | 'event_triggered_capture' | 'manual_capture'
+  isActive: boolean
 }
 
 export type UpdateRawDataCollectionSettingInput = Partial<CreateRawDataCollectionSettingInput>
@@ -155,6 +156,7 @@ type RawDataCollectionGalleryApiResponse = {
       frame_sampling_interval_unit: 'frames' | 'seconds'
       collection_context_notes: string | null
       collection_type: 'scheduled_capture' | 'event_triggered_capture' | 'manual_capture'
+      is_active: boolean
       created_at: string | null
       updated_at: string | null
     }
@@ -234,6 +236,7 @@ export type RawDataCollectionGalleryRawDataCollectionSetting = {
   frameSamplingIntervalUnit: 'frames' | 'seconds'
   collectionContextNotes: string | null
   collectionType: 'scheduled_capture' | 'event_triggered_capture' | 'manual_capture'
+  isActive: boolean
   createdAt: string | null
   updatedAt: string | null
 }
@@ -508,6 +511,7 @@ export const createRawDataCollectionSetting = async (
       frame_sampling_interval_unit: input.frameSamplingIntervalUnit,
       collection_context_notes: input.collectionContextNotes,
       collection_type: input.collectionType,
+      is_active: input.isActive,
     }),
   })
 
@@ -542,6 +546,7 @@ export const updateRawDataCollectionSetting = async (
           ? { collection_context_notes: input.collectionContextNotes }
           : {}),
         ...(input.collectionType !== undefined ? { collection_type: input.collectionType } : {}),
+        ...(input.isActive !== undefined ? { is_active: input.isActive } : {}),
       }),
     },
   )
@@ -708,6 +713,7 @@ export const loadRawDataCollectionGallery = async (
       frameSamplingIntervalUnit: payload.data.raw_data_collection_setting.frame_sampling_interval_unit,
       collectionContextNotes: payload.data.raw_data_collection_setting.collection_context_notes,
       collectionType: payload.data.raw_data_collection_setting.collection_type,
+      isActive: payload.data.raw_data_collection_setting.is_active,
       createdAt: payload.data.raw_data_collection_setting.created_at,
       updatedAt: payload.data.raw_data_collection_setting.updated_at,
     },

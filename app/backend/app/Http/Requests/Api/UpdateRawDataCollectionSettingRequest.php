@@ -30,6 +30,7 @@ class UpdateRawDataCollectionSettingRequest extends FormRequest
                 'event_triggered_capture',
                 'manual_capture',
             ])],
+            'is_active' => ['sometimes', 'boolean'],
         ];
     }
 }
