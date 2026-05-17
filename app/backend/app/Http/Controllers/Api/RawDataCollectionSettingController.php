@@ -12,6 +12,7 @@ use App\Services\RawDataCollectionSettingService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Http\Response;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class RawDataCollectionSettingController extends Controller
 {
@@ -41,6 +42,21 @@ class RawDataCollectionSettingController extends Controller
         return new RawDataCollectionGalleryResource(
             $this->rawDataCollectionSettingService->buildGalleryPayload($rawDataCollectionSetting)
         );
+    }
+
+    public function image(Request $request): BinaryFileResponse
+    {
+        $path = $request->query('path');
+        if (!is_string($path)) {
+            abort(404);
+        }
+
+        $absolutePath = $this->rawDataCollectionSettingService->resolveGalleryImageAbsolutePath($path);
+        if ($absolutePath === null) {
+            abort(404);
+        }
+
+        return response()->file($absolutePath);
     }
 
     public function update(UpdateRawDataCollectionSettingRequest $request, RawDataCollectionSetting $rawDataCollectionSetting): RawDataCollectionSettingResource

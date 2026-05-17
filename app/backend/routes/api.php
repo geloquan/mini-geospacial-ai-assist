@@ -15,6 +15,7 @@ use App\Http\Middleware\ApiTokenAuth;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/login', [AuthController::class, 'login']);
+Route::get('/raw-data/image', [RawDataCollectionSettingController::class, 'image']);
 
 Route::middleware(ApiTokenAuth::class)->group(function (): void {
   Route::get('/dashboard', [DashboardController::class, 'index']);

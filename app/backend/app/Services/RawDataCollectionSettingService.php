@@ -72,7 +72,6 @@ class RawDataCollectionSettingService
 
         return in_array($extension, ['jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp', 'tif', 'tiff'], true);
       })
-      ->map(static fn(string $path): string => Storage::disk('local')->path($path))
       ->values()
       ->all();
 
@@ -85,6 +84,34 @@ class RawDataCollectionSettingService
         'image_paths' => $imagePaths,
       ],
     ];
+  }
+
+  public function resolveGalleryImageAbsolutePath(string $relativePath): ?string
+  {
+    $normalizedRelativePath = trim(str_replace('\\', '/', $relativePath), '/');
+    if ($normalizedRelativePath === '' || str_contains($normalizedRelativePath, '..')) {
+      return null;
+    }
+
+    if (!str_starts_with($normalizedRelativePath, 'raw-data-collections/')) {
+      return null;
+    }
+
+    if (preg_match('/^[-A-Za-z0-9._\/]+$/', $normalizedRelativePath) !== 1) {
+      return null;
+    }
+
+    if (!Storage::disk('local')->exists($normalizedRelativePath)) {
+      return null;
+    }
+
+    $absolutePath = Storage::disk('local')->path($normalizedRelativePath);
+    $mimeType = mime_content_type($absolutePath);
+    if (!is_string($mimeType) || !str_starts_with($mimeType, 'image/')) {
+      return null;
+    }
+
+    return $absolutePath;
   }
 
   private function syncStorageDestinationAndMetadata(

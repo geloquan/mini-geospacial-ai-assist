@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import { LogIn, LogOut, Database, MapPin, Camera, Cpu, LayoutDashboard, ChevronRight, Activity, HardDrive } from 'lucide-react'
-import { login } from './services/api-service'
+import { buildRawDataImageUrl, login } from './services/api-service'
 import type { CatalogResourceEndpoint } from './services/api-service'
 import { useDashboardQuery } from './hooks/use-dashboard-query'
 import { useCatalogTableQuery } from './hooks/use-catalog-table-query'
@@ -1713,7 +1713,7 @@ function App() {
                           <div className="raw-data-gallery-grid">
                             {rawDataCollectionGalleryData.imagePaths.map((imagePath) => (
                               <div key={imagePath} className="raw-data-gallery-item">
-                                <img src={imagePath} alt={imagePath} className="raw-data-gallery-image" />
+                                <img src={buildRawDataImageUrl(imagePath)} alt={imagePath} className="raw-data-gallery-image" />
                                 <div className="raw-data-gallery-path">{imagePath}</div>
                               </div>
                             ))}

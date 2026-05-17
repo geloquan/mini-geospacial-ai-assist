@@ -7,6 +7,9 @@ import type {
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? '/api'
 
+export const buildRawDataImageUrl = (relativePath: string): string =>
+  `${API_BASE}/raw-data/image?path=${encodeURIComponent(relativePath)}`
+
 type LoginApiResponse = {
   data: {
     token: string
