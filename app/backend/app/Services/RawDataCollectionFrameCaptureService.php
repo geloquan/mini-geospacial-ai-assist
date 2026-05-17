@@ -49,19 +49,16 @@ class RawDataCollectionFrameCaptureService
   {
     $normalizedWindowSeconds = max(1, $windowSeconds);
     $capturedCount = 0;
-    $windowStartedAt = microtime(true);
+    $windowEndsAt = microtime(true) + $normalizedWindowSeconds;
 
-    while (true) {
+    while (microtime(true) < $windowEndsAt) {
       $capturedCount += $this->captureScheduled();
 
-      $elapsedSeconds = (int) floor(microtime(true) - $windowStartedAt);
-      $remainingSeconds = $normalizedWindowSeconds - $elapsedSeconds;
+      $remainingSeconds = (int) ceil($windowEndsAt - microtime(true));
 
-      if ($remainingSeconds <= 0) {
-        break;
+      if ($remainingSeconds > 0) {
+        sleep(min(self::CAPTURE_WINDOW_SLEEP_SECONDS, $remainingSeconds));
       }
-
-      sleep(min(self::CAPTURE_WINDOW_SLEEP_SECONDS, $remainingSeconds));
     }
 
     return $capturedCount;
@@ -489,6 +486,7 @@ class RawDataCollectionFrameCaptureService
 
   /**
    * @param array<int, array{path: string, last_modified: int, size: int}> $frames
+   * @return array{path: string, last_modified: int, size: int}|null
    */
   private function oldestFrameMetadata(array $frames): ?array
   {
