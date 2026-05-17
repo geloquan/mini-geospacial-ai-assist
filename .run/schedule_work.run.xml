@@ -1,5 +1,5 @@
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="schedule" type="PhpLocalRunConfigurationType" factoryName="PHP Console" path="$PROJECT_DIR$/app/backend/artisan" scriptParameters="schedule:run">
+  <configuration default="false" name="schedule:work" type="PhpLocalRunConfigurationType" factoryName="PHP Console" path="$PROJECT_DIR$/app/backend/artisan" scriptParameters="schedule:work">
     <CommandLine>
       <PhpTestInterpreterSettings>
         <option name="interpreterName" value="$PROJECT_DIR$/../../Program Files/php-8.4.7/php.exe" />
