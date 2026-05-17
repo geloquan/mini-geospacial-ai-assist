@@ -1,0 +1,10 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="optimize:clear" type="PhpLocalRunConfigurationType" factoryName="PHP Console" activateToolWindowBeforeRun="false" singleton="false" path="$PROJECT_DIR$/app/backend/artisan" scriptParameters="optimize:clear">
+    <option name="envFilePaths">
+      <list>
+        <option value="$PROJECT_DIR$/app/backend/.env" />
+      </list>
+    </option>
+    <method v="2" />
+  </configuration>
+</component>

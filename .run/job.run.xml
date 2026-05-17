@@ -1,0 +1,10 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="job" type="PhpLocalRunConfigurationType" factoryName="PHP Console" path="$PROJECT_DIR$/app/backend/artisan" scriptParameters="queue:work">
+    <CommandLine>
+      <PhpTestInterpreterSettings>
+        <option name="interpreterName" value="$PROJECT_DIR$/../../Program Files/php-8.4.7/php.exe" />
+      </PhpTestInterpreterSettings>
+    </CommandLine>
+    <method v="2" />
+  </configuration>
+</component>

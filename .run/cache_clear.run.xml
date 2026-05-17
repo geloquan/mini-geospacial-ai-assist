@@ -1,0 +1,18 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="cache:clear" type="PhpLocalRunConfigurationType" factoryName="PHP Console" activateToolWindowBeforeRun="false" singleton="false" path="$PROJECT_DIR$/app/backend/artisan" scriptParameters="cache:clear">
+    <CommandLine>
+      <envFiles>
+        <find>$PROJECT_DIR$/app/backend/.env</find>
+      </envFiles>
+      <PhpTestInterpreterSettings>
+        <option name="interpreterName" value="$PROJECT_DIR$/../../Program Files/php-8.4.7/php.exe" />
+      </PhpTestInterpreterSettings>
+    </CommandLine>
+    <option name="envFilePaths">
+      <list>
+        <option value="$PROJECT_DIR$/app/backend/.env" />
+      </list>
+    </option>
+    <method v="2" />
+  </configuration>
+</component>
