@@ -21,6 +21,7 @@ class StoreLocationRequest extends FormRequest
             'descriptive_location' => ['nullable', 'string', 'max:1000'],
             'image_paths' => ['nullable', 'array'],
             'image_paths.*' => ['string', 'max:2048'],
+            'timezone' => ['required', 'string', 'timezone'],
             'latitude' => ['nullable', 'numeric', 'between:-90,90'],
             'longitude' => ['nullable', 'numeric', 'between:-180,180'],
         ];

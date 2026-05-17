@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'location_name',
     'descriptive_location',
     'image_paths',
+    'timezone',
     'latitude',
     'longitude',
 ])]

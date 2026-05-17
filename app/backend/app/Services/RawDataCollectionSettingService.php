@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\CameraSource;
+use App\Models\Location;
 use App\Models\RawDataCollectionSetting;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -50,6 +51,26 @@ class RawDataCollectionSettingService
     $rawDataCollectionSetting->delete();
   }
 
+  public function syncMetadataForLocation(Location $location): void
+  {
+    $location->loadMissing('cameraSources.rawDataCollectionSettings.cameraSource.location', 'cameraSources.rawDataCollectionSettings.cameraSource.latestHealthLog');
+
+    foreach ($location->cameraSources as $cameraSource) {
+      foreach ($cameraSource->rawDataCollectionSettings as $rawDataCollectionSetting) {
+        $this->syncStorageDestinationAndMetadata($rawDataCollectionSetting);
+      }
+    }
+  }
+
+  public function syncMetadataForCameraSource(CameraSource $cameraSource): void
+  {
+    $cameraSource->loadMissing('location', 'latestHealthLog', 'rawDataCollectionSettings.cameraSource.location', 'rawDataCollectionSettings.cameraSource.latestHealthLog');
+
+    foreach ($cameraSource->rawDataCollectionSettings as $rawDataCollectionSetting) {
+      $this->syncStorageDestinationAndMetadata($rawDataCollectionSetting);
+    }
+  }
+
   /**
    * @return array<string, mixed>
    */
@@ -68,6 +89,7 @@ class RawDataCollectionSettingService
       throw new RuntimeException('Unable to load gallery metadata without a valid camera source.');
     }
 
+    $locationTimezone = $this->resolveLocationTimezone($cameraSource);
     $metadata = $this->buildMetadataPayload($rawDataCollectionSetting, $cameraSource);
     $storageDestination = Arr::get($metadata, 'raw_data_collection_setting.storage_destination');
     if (!is_string($storageDestination)) {
@@ -80,14 +102,14 @@ class RawDataCollectionSettingService
 
         return in_array($extension, ['jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp', 'tif', 'tiff'], true);
       })
-      ->map(fn (string $path): ?array => $this->buildGalleryFramePayload($path))
+      ->map(fn (string $path): ?array => $this->buildGalleryFramePayload($path, $locationTimezone))
       ->filter(static fn (?array $frame): bool => $frame !== null)
       ->sortByDesc('captured_at_timestamp')
       ->values()
       ->all();
 
-    $parsedFromDateTime = $this->parseDateTimeFilter($fromDateTime);
-    $parsedToDateTime = $this->parseDateTimeFilter($toDateTime);
+    $parsedFromDateTime = $this->parseDateTimeFilter($fromDateTime, $locationTimezone);
+    $parsedToDateTime = $this->parseDateTimeFilter($toDateTime, $locationTimezone);
 
     $filteredFrameItems = collect($frameItems)
       ->filter(function (array $frameItem) use ($parsedFromDateTime, $parsedToDateTime): bool {
@@ -124,6 +146,7 @@ class RawDataCollectionSettingService
       'location' => Arr::get($metadata, 'location'),
       'gallery' => [
         'storage_destination' => $storageDestination,
+        'timezone' => $locationTimezone,
         'image_paths' => $imagePaths,
         'frames' => $paginatedFrameItems->map(function (array $frameItem): array {
           unset($frameItem['captured_at_timestamp']);
@@ -272,21 +295,22 @@ class RawDataCollectionSettingService
         ? null
         : [
           'id' => $location->id,
-          'location_name' => $location->location_name,
-          'descriptive_location' => $location->descriptive_location,
-          'image_paths' => $location->image_paths,
-          'latitude' => $location->latitude,
-          'longitude' => $location->longitude,
-          'created_at' => $location->created_at?->toIso8601String(),
-          'updated_at' => $location->updated_at?->toIso8601String(),
-        ],
+           'location_name' => $location->location_name,
+           'descriptive_location' => $location->descriptive_location,
+           'image_paths' => $location->image_paths,
+           'timezone' => $location->timezone,
+           'latitude' => $location->latitude,
+           'longitude' => $location->longitude,
+           'created_at' => $location->created_at?->toIso8601String(),
+           'updated_at' => $location->updated_at?->toIso8601String(),
+         ],
     ];
   }
 
   /**
    * @return array<string, mixed>|null
    */
-  private function buildGalleryFramePayload(string $path): ?array
+  private function buildGalleryFramePayload(string $path, string $locationTimezone): ?array
   {
     if (!Storage::disk('local')->exists($path)) {
       return null;
@@ -294,7 +318,7 @@ class RawDataCollectionSettingService
 
     $absolutePath = Storage::disk('local')->path($path);
     $lastModifiedTimestamp = Storage::disk('local')->lastModified($path);
-    $capturedAt = $this->resolveFrameCapturedAt($path, $lastModifiedTimestamp);
+    $capturedAt = $this->resolveFrameCapturedAt($path, $lastModifiedTimestamp, $locationTimezone);
     $mimeType = mime_content_type($absolutePath);
     $imageDimensions = @getimagesize($absolutePath);
 
@@ -303,7 +327,7 @@ class RawDataCollectionSettingService
       'file_name' => basename($path),
       'captured_at' => $capturedAt->toIso8601String(),
       'captured_at_timestamp' => $capturedAt->getTimestamp(),
-      'last_modified_at' => CarbonImmutable::createFromTimestamp($lastModifiedTimestamp)->toIso8601String(),
+      'last_modified_at' => CarbonImmutable::createFromTimestamp($lastModifiedTimestamp, $locationTimezone)->toIso8601String(),
       'mime_type' => is_string($mimeType) ? $mimeType : null,
       'file_size_bytes' => Storage::disk('local')->size($path),
       'width' => is_array($imageDimensions) ? ($imageDimensions[0] ?? null) : null,
@@ -311,29 +335,33 @@ class RawDataCollectionSettingService
     ];
   }
 
-  private function resolveFrameCapturedAt(string $path, int $lastModifiedTimestamp): CarbonImmutable
+  private function resolveFrameCapturedAt(
+    string $path,
+    int $lastModifiedTimestamp,
+    string $locationTimezone
+  ): CarbonImmutable
   {
     $fileName = basename($path);
     $matches = [];
     if (preg_match('/^frame_(\d{8})_(\d{6})_(\d{1,6})_[^\/]+\.[A-Za-z0-9]+$/', $fileName, $matches) !== 1) {
-      return CarbonImmutable::createFromTimestamp($lastModifiedTimestamp);
+      return CarbonImmutable::createFromTimestamp($lastModifiedTimestamp, $locationTimezone);
     }
 
     $microseconds = str_pad($matches[3], 6, '0', STR_PAD_RIGHT);
     $dateTime = CarbonImmutable::createFromFormat(
       'Ymd_His_u',
       sprintf('%s_%s_%s', $matches[1], $matches[2], $microseconds),
-      config('app.timezone')
+      $locationTimezone
     );
 
     if ($dateTime === false) {
-      return CarbonImmutable::createFromTimestamp($lastModifiedTimestamp);
+      return CarbonImmutable::createFromTimestamp($lastModifiedTimestamp, $locationTimezone);
     }
 
     return $dateTime;
   }
 
-  private function parseDateTimeFilter(?string $value): ?CarbonImmutable
+  private function parseDateTimeFilter(?string $value, string $locationTimezone): ?CarbonImmutable
   {
     if (!is_string($value)) {
       return null;
@@ -345,9 +373,18 @@ class RawDataCollectionSettingService
     }
 
     try {
-      return CarbonImmutable::parse($normalizedValue);
+      return CarbonImmutable::parse($normalizedValue, $locationTimezone);
     } catch (Throwable) {
       return null;
     }
+  }
+
+  private function resolveLocationTimezone(CameraSource $cameraSource): string
+  {
+    $timezone = $cameraSource->location?->timezone;
+
+    return is_string($timezone) && trim($timezone) !== ''
+      ? $timezone
+      : (string) config('app.timezone');
   }
 }

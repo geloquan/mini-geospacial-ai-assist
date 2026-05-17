@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\CameraSource;
 use App\Models\CameraSourceHealthLog;
 use App\Models\RawDataCollectionSetting;
+use Carbon\CarbonImmutable;
 use FFMpeg\Coordinate\TimeCode;
 use FFMpeg\FFMpeg;
 use Illuminate\Support\Collection;
@@ -22,7 +23,7 @@ class RawDataCollectionFrameCaptureService
     $capturedCount = 0;
 
     RawDataCollectionSetting::query()
-      ->with('cameraSource')
+      ->with('cameraSource.location')
       ->where('collection_type', 'scheduled_capture')
       ->chunkById(100, function (Collection $settings) use (&$capturedCount): void {
         foreach ($settings as $setting) {
@@ -42,7 +43,7 @@ class RawDataCollectionFrameCaptureService
   public function captureById(int $rawDataCollectionSettingId): bool
   {
     $setting = RawDataCollectionSetting::query()
-      ->with('cameraSource')
+      ->with('cameraSource.location')
       ->findOrFail($rawDataCollectionSettingId);
 
     return $this->captureFrame($setting, true);
@@ -113,7 +114,8 @@ class RawDataCollectionFrameCaptureService
     }
 
     $outputExtension = $this->resolveOutputExtension($cameraSource);
-    $newFrameRelativePath = $framesDirectory . '/frame_' . now()->format('Ymd_His_u') . '_' . Str::uuid() . '.' . $outputExtension;
+    $locationTimezone = $this->resolveLocationTimezone($cameraSource);
+    $newFrameRelativePath = $framesDirectory . '/frame_' . CarbonImmutable::now($locationTimezone)->format('Ymd_His_u') . '_' . Str::uuid() . '.' . $outputExtension;
     $newFrameAbsolutePath = Storage::disk('local')->path($newFrameRelativePath);
 
     $ffmpeg = FFMpeg::create($this->buildFfmpegConfiguration($cameraSource));
@@ -370,6 +372,15 @@ class RawDataCollectionFrameCaptureService
     }
 
     return $normalizedExtension;
+  }
+
+  private function resolveLocationTimezone(CameraSource $cameraSource): string
+  {
+    $timezone = $cameraSource->location?->timezone;
+
+    return is_string($timezone) && trim($timezone) !== ''
+      ? $timezone
+      : (string) config('app.timezone');
   }
 
   private function logCameraSourceHealth(

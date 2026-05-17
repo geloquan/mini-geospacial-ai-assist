@@ -17,6 +17,7 @@ class LocationResource extends JsonResource
             'location_name' => $this->location_name,
             'descriptive_location' => $this->descriptive_location,
             'image_paths' => $this->image_paths,
+            'timezone' => $this->timezone,
             'latitude' => $this->latitude,
             'longitude' => $this->longitude,
             'created_at' => $this->created_at,

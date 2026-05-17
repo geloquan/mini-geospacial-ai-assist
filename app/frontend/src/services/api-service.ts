@@ -36,6 +36,7 @@ type ApiLocation = {
   location_name: string
   descriptive_location: string | null
   image_paths: string[] | null
+  timezone: string
   latitude: number | string | null
   longitude: number | string | null
 }
@@ -188,6 +189,7 @@ type RawDataCollectionGalleryApiResponse = {
       location_name: string
       descriptive_location: string | null
       image_paths: string[] | null
+      timezone: string
       latitude: number | string | null
       longitude: number | string | null
       created_at: string | null
@@ -195,6 +197,7 @@ type RawDataCollectionGalleryApiResponse = {
     } | null
     gallery: {
       storage_destination: string
+      timezone: string
       image_paths: string[]
       frames: Array<{
         path: string
@@ -267,6 +270,7 @@ export type RawDataCollectionGalleryLocation = {
   locationName: string
   descriptiveLocation: string | null
   imagePaths: string[]
+  timezone: string
   latitude: number | null
   longitude: number | null
   createdAt: string | null
@@ -278,6 +282,7 @@ export type RawDataCollectionGalleryPayload = {
   cameraSource: RawDataCollectionGalleryCameraSource
   location: RawDataCollectionGalleryLocation | null
   storageDestination: string
+  timezone: string
   imagePaths: string[]
   frames: Array<{
     path: string
@@ -315,6 +320,7 @@ const mapLocation = (location: ApiLocation): Location => ({
   locationName: location.location_name,
   descriptiveLocation: location.descriptive_location ?? '',
   imagePaths: Array.isArray(location.image_paths) ? location.image_paths : [],
+  timezone: location.timezone,
   latitude: toNullableNumber(location.latitude),
   longitude: toNullableNumber(location.longitude),
 })
@@ -383,6 +389,7 @@ export const createLocation = async (
       location_name: input.locationName,
       descriptive_location: input.descriptiveLocation,
       image_paths: input.imagePaths,
+      timezone: input.timezone,
       latitude: input.latitude,
       longitude: input.longitude,
     }),
@@ -408,6 +415,7 @@ export const updateLocation = async (
         ? { descriptive_location: input.descriptiveLocation }
         : {}),
       ...(input.imagePaths !== undefined ? { image_paths: input.imagePaths } : {}),
+      ...(input.timezone !== undefined ? { timezone: input.timezone } : {}),
       ...(input.latitude !== undefined ? { latitude: input.latitude } : {}),
       ...(input.longitude !== undefined ? { longitude: input.longitude } : {}),
     }),
@@ -735,17 +743,19 @@ export const loadRawDataCollectionGallery = async (
     },
     location: payload.data.location === null
       ? null
-      : {
+        : {
           id: payload.data.location.id,
           locationName: payload.data.location.location_name,
           descriptiveLocation: payload.data.location.descriptive_location,
           imagePaths: Array.isArray(payload.data.location.image_paths) ? payload.data.location.image_paths : [],
+          timezone: payload.data.location.timezone,
           latitude: toNullableNumber(payload.data.location.latitude),
           longitude: toNullableNumber(payload.data.location.longitude),
           createdAt: payload.data.location.created_at,
           updatedAt: payload.data.location.updated_at,
         },
     storageDestination: payload.data.gallery.storage_destination,
+    timezone: payload.data.gallery.timezone,
     imagePaths: Array.isArray(payload.data.gallery.image_paths) ? payload.data.gallery.image_paths : [],
     frames: Array.isArray(payload.data.gallery.frames)
       ? payload.data.gallery.frames.map((frame) => ({

@@ -7,6 +7,11 @@ use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 
 class CameraSourceService
 {
+    public function __construct(
+        private readonly RawDataCollectionSettingService $rawDataCollectionSettingService
+    ) {
+    }
+
     public function listPaginated(int $perPage): LengthAwarePaginator
     {
         return CameraSource::query()
@@ -35,6 +40,7 @@ class CameraSourceService
     {
         $cameraSource->fill($data);
         $cameraSource->save();
+        $this->rawDataCollectionSettingService->syncMetadataForCameraSource($cameraSource);
 
         return $cameraSource;
     }

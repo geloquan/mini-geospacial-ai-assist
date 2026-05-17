@@ -21,6 +21,7 @@ class UpdateLocationRequest extends FormRequest
             'descriptive_location' => ['sometimes', 'nullable', 'string', 'max:1000'],
             'image_paths' => ['sometimes', 'nullable', 'array'],
             'image_paths.*' => ['string', 'max:2048'],
+            'timezone' => ['sometimes', 'required', 'string', 'timezone'],
             'latitude' => ['sometimes', 'nullable', 'numeric', 'between:-90,90'],
             'longitude' => ['sometimes', 'nullable', 'numeric', 'between:-180,180'],
         ];

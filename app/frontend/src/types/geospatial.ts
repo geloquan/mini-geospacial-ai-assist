@@ -9,6 +9,7 @@ export type Location = {
   locationName: string
   descriptiveLocation: string
   imagePaths: string[]
+  timezone: string
   latitude: number | null
   longitude: number | null
 }
@@ -17,6 +18,7 @@ export type CreateLocationInput = {
   locationName: string
   descriptiveLocation: string | null
   imagePaths: string[]
+  timezone: string
   latitude: number | null
   longitude: number | null
 }

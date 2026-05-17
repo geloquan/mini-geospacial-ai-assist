@@ -31,6 +31,7 @@ type LocationFormState = {
   locationName: string
   descriptiveLocation: string
   imagePaths: string
+  timezone: string
   latitude: string
   longitude: string
 }
@@ -54,6 +55,7 @@ const INITIAL_LOCATION_FORM: LocationFormState = {
   locationName: '',
   descriptiveLocation: '',
   imagePaths: '',
+  timezone: 'UTC',
   latitude: '',
   longitude: '',
 }
@@ -122,7 +124,7 @@ const parseCollectionStatus = (
   return { collectionState, isCollecting, collectionMessage }
 }
 
-const formatDateTime = (value: string | null | undefined): string => {
+const formatDateTime = (value: string | null | undefined, timezone?: string | null): string => {
   if (!value) {
     return '—'
   }
@@ -132,7 +134,15 @@ const formatDateTime = (value: string | null | undefined): string => {
     return value
   }
 
-  return parsedDate.toLocaleString()
+  try {
+    return new Intl.DateTimeFormat(undefined, {
+      dateStyle: 'medium',
+      timeStyle: 'medium',
+      ...(timezone ? { timeZone: timezone } : {}),
+    }).format(parsedDate)
+  } catch {
+    return parsedDate.toLocaleString()
+  }
 }
 
 const formatFileSize = (value: number | null | undefined): string => {
@@ -278,10 +288,11 @@ function App() {
           const locationName = row.location_name
           const descriptiveLocation = row.descriptive_location
           const imagePaths = row.image_paths
+          const timezone = row.timezone
           const latitude = row.latitude
           const longitude = row.longitude
 
-          if (typeof id !== 'number' || typeof locationName !== 'string') {
+          if (typeof id !== 'number' || typeof locationName !== 'string' || typeof timezone !== 'string') {
             return null
           }
 
@@ -292,6 +303,7 @@ function App() {
             imagePaths: Array.isArray(imagePaths)
               ? imagePaths.filter((value): value is string => typeof value === 'string')
               : [],
+            timezone,
             latitude:
               typeof latitude === 'number' ? latitude : typeof latitude === 'string' ? Number(latitude) : null,
             longitude:
@@ -301,14 +313,15 @@ function App() {
         .filter(
           (
             location,
-          ): location is {
-            id: number
-            locationName: string
-            descriptiveLocation: string
-            imagePaths: string[]
-            latitude: number | null
-            longitude: number | null
-          } => location !== null,
+            ): location is {
+              id: number
+              locationName: string
+              descriptiveLocation: string
+              imagePaths: string[]
+              timezone: string
+              latitude: number | null
+              longitude: number | null
+            } => location !== null,
         ),
     [locationsCatalogData?.rows],
   )
@@ -644,6 +657,7 @@ function App() {
       locationName: selectedLocation.locationName,
       descriptiveLocation: selectedLocation.descriptiveLocation,
       imagePaths: selectedLocation.imagePaths.join(', '),
+      timezone: selectedLocation.timezone,
       latitude: selectedLocation.latitude === null ? '' : String(selectedLocation.latitude),
       longitude: selectedLocation.longitude === null ? '' : String(selectedLocation.longitude),
     })
@@ -665,6 +679,7 @@ function App() {
         locationName: locationForm.locationName,
         descriptiveLocation: locationForm.descriptiveLocation || null,
         imagePaths,
+        timezone: locationForm.timezone,
         latitude: locationForm.latitude ? Number(locationForm.latitude) : null,
         longitude: locationForm.longitude ? Number(locationForm.longitude) : null,
       }
@@ -1123,6 +1138,7 @@ function App() {
                         <th>location_name</th>
                         <th>descriptive_location</th>
                         <th>image_paths</th>
+                        <th>timezone</th>
                         <th>latitude</th>
                         <th>longitude</th>
                         <th>actions</th>
@@ -1135,6 +1151,7 @@ function App() {
                           <td>{location.locationName}</td>
                           <td>{location.descriptiveLocation || <span className="table-null">—</span>}</td>
                           <td>{location.imagePaths.length === 0 ? <span className="table-null">—</span> : location.imagePaths.join(', ')}</td>
+                          <td>{location.timezone}</td>
                           <td>{location.latitude === null ? <span className="table-null">—</span> : String(location.latitude)}</td>
                           <td>{location.longitude === null ? <span className="table-null">—</span> : String(location.longitude)}</td>
                           <td>
@@ -1189,6 +1206,16 @@ function App() {
                       <div className="form-field">
                         <label className="form-label">Image Paths (comma separated)</label>
                         <input className="form-input" value={locationForm.imagePaths} onChange={(e) => setLocationForm((current) => ({ ...current, imagePaths: e.target.value }))} placeholder="images/location-1.jpg, images/location-2.jpg" />
+                      </div>
+                      <div className="form-field">
+                        <label className="form-label">Timezone<span className="form-required">*</span></label>
+                        <input
+                          className="form-input"
+                          value={locationForm.timezone}
+                          onChange={(e) => setLocationForm((current) => ({ ...current, timezone: e.target.value }))}
+                          placeholder="Asia/Manila"
+                          required
+                        />
                       </div>
                       <div className="form-field">
                         <label className="form-label">Latitude</label>
@@ -1751,10 +1778,17 @@ function App() {
                                 {`${renderMetadataValue(rawDataCollectionGalleryData.location?.latitude)}, ${renderMetadataValue(rawDataCollectionGalleryData.location?.longitude)}`}
                               </span>
                             </div>
+                            <div className="raw-data-metadata-item">
+                              <span>Timezone</span>
+                              <span>{renderMetadataValue(rawDataCollectionGalleryData.location?.timezone ?? rawDataCollectionGalleryData.timezone)}</span>
+                            </div>
                           </div>
                         </div>
 
                         <div className="catalog-toolbar" style={{ marginBottom: 0 }}>
+                          <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                            Filter and capture times use timezone: {rawDataCollectionGalleryData.timezone}
+                          </div>
                           <label className="form-label" style={{ marginBottom: 0 }}>From</label>
                           <input
                             className="form-input"
@@ -1813,7 +1847,9 @@ function App() {
                                   />
                                   <div className="raw-data-gallery-details">
                                     <div className="raw-data-gallery-path">{frame.path}</div>
-                                    <div className="raw-data-gallery-meta">Captured: {formatDateTime(frame.capturedAt)}</div>
+                                    <div className="raw-data-gallery-meta">
+                                      Captured: {formatDateTime(frame.capturedAt, rawDataCollectionGalleryData.timezone)}
+                                    </div>
                                     <div className="raw-data-gallery-meta">
                                       Resolution: {frame.width !== null && frame.height !== null ? `${frame.width}×${frame.height}` : '—'}
                                     </div>
