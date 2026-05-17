@@ -101,6 +101,11 @@ class RawDataCollectionSettingService
       return null;
     }
 
+    $extension = strtolower(pathinfo($normalizedRelativePath, PATHINFO_EXTENSION));
+    if (!in_array($extension, ['jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp', 'tif', 'tiff'], true)) {
+      return null;
+    }
+
     if (!Storage::disk('local')->exists($normalizedRelativePath)) {
       return null;
     }
