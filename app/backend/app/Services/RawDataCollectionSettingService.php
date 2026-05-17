@@ -159,17 +159,38 @@ class RawDataCollectionSettingService
       return null;
     }
 
+    $extension = strtolower(pathinfo($normalizedRelativePath, PATHINFO_EXTENSION));
+    if (!in_array($extension, ['jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp', 'tif', 'tiff'], true)) {
+      return null;
+    }
+
     if (!Storage::disk('local')->exists($normalizedRelativePath)) {
       return null;
     }
 
     $absolutePath = Storage::disk('local')->path($normalizedRelativePath);
+    $storageRoot = realpath(Storage::disk('local')->path(''));
+    $resolvedPath = realpath($absolutePath);
+    if (!is_string($storageRoot) || !is_string($resolvedPath)) {
+      return null;
+    }
+
+    $normalizedStorageRoot = rtrim(str_replace('\\', '/', $storageRoot), '/');
+    $normalizedResolvedPath = str_replace('\\', '/', $resolvedPath);
+    if (!str_starts_with($normalizedResolvedPath, $normalizedStorageRoot . '/')) {
+      return null;
+    }
+
+    if (!str_starts_with($normalizedResolvedPath, $normalizedStorageRoot . '/raw-data-collections/')) {
+      return null;
+    }
+
     $mimeType = mime_content_type($absolutePath);
     if (!is_string($mimeType) || !str_starts_with($mimeType, 'image/')) {
       return null;
     }
 
-    return $absolutePath;
+    return $resolvedPath;
   }
 
   private function syncStorageDestinationAndMetadata(
