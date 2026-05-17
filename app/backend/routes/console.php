@@ -43,5 +43,5 @@ Artisan::command('raw-data-collection:capture-frames-forever {--sleep=5}', funct
 })->purpose('Continuously capture image frames without requiring schedule:run.');
 
 Schedule::command('raw-data-collection:capture-frames')
-    ->withoutOverlapping()
+    ->withoutOverlapping(1)
     ->everySecond();
