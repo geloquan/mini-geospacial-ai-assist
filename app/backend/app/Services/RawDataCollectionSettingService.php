@@ -53,7 +53,7 @@ class RawDataCollectionSettingService
      */
     public function buildGalleryPayload(RawDataCollectionSetting $rawDataCollectionSetting): array
     {
-        $rawDataCollectionSetting->loadMissing('cameraSource.location');
+        $rawDataCollectionSetting->loadMissing('cameraSource.location', 'cameraSource.latestHealthLog');
 
         $cameraSource = $rawDataCollectionSetting->cameraSource;
         if (!$cameraSource instanceof CameraSource) {
@@ -89,7 +89,7 @@ class RawDataCollectionSettingService
     private function syncStorageDestinationAndMetadata(
         RawDataCollectionSetting $rawDataCollectionSetting
     ): RawDataCollectionSetting {
-        $rawDataCollectionSetting->loadMissing('cameraSource.location');
+        $rawDataCollectionSetting->loadMissing('cameraSource.location', 'cameraSource.latestHealthLog');
 
         $cameraSource = $rawDataCollectionSetting->cameraSource;
         if (!$cameraSource instanceof CameraSource) {
@@ -155,6 +155,7 @@ class RawDataCollectionSettingService
                 'live_feed_url' => $cameraSource->live_feed_url,
                 'camera_specification' => $cameraSource->camera_specification,
                 'is_active' => $cameraSource->is_active,
+                'collection_status' => $cameraSource->collectionStatus(),
                 'created_at' => $cameraSource->created_at?->toIso8601String(),
                 'updated_at' => $cameraSource->updated_at?->toIso8601String(),
             ],

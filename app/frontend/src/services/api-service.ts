@@ -169,6 +169,14 @@ type RawDataCollectionGalleryApiResponse = {
         field_of_view: string | null
       } | null
       is_active: boolean
+      collection_status: {
+        state: string
+        is_collecting: boolean
+        message: string
+        raw_status: string | null
+        delay: number | null
+        logged_at: string | null
+      } | null
       created_at: string | null
       updated_at: string | null
     }
@@ -219,6 +227,14 @@ export type RawDataCollectionGalleryCameraSource = {
     fieldOfView: string | null
   } | null
   isActive: boolean
+  collectionStatus: {
+    state: string
+    isCollecting: boolean
+    message: string
+    rawStatus: string | null
+    delay: number | null
+    loggedAt: string | null
+  } | null
   createdAt: string | null
   updatedAt: string | null
 }
@@ -645,6 +661,16 @@ export const loadRawDataCollectionGallery = async (
             fieldOfView: payload.data.camera_source.camera_specification.field_of_view,
           },
       isActive: payload.data.camera_source.is_active,
+      collectionStatus: payload.data.camera_source.collection_status === null
+        ? null
+        : {
+            state: payload.data.camera_source.collection_status.state,
+            isCollecting: payload.data.camera_source.collection_status.is_collecting,
+            message: payload.data.camera_source.collection_status.message,
+            rawStatus: payload.data.camera_source.collection_status.raw_status,
+            delay: payload.data.camera_source.collection_status.delay,
+            loggedAt: payload.data.camera_source.collection_status.logged_at,
+          },
       createdAt: payload.data.camera_source.created_at,
       updatedAt: payload.data.camera_source.updated_at,
     },

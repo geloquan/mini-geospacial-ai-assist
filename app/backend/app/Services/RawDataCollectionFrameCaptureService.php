@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\CameraSource;
+use App\Models\CameraSourceHealthLog;
 use App\Models\RawDataCollectionSetting;
 use FFMpeg\Coordinate\TimeCode;
 use FFMpeg\FFMpeg;
@@ -53,21 +54,41 @@ class RawDataCollectionFrameCaptureService
     }
 
     if (!$cameraSource->is_active) {
+      $this->logCameraSourceHealth(
+        $cameraSource,
+        'inactive',
+        'Camera source is inactive and cannot collect frames.'
+      );
       return false;
     }
 
     $liveFeedUrl = $cameraSource->live_feed_url;
     if (!is_string($liveFeedUrl) || trim($liveFeedUrl) === '') {
+      $this->logCameraSourceHealth(
+        $cameraSource,
+        'configuration_error',
+        'Live feed URL is missing for the camera source.'
+      );
       return false;
     }
 
     $storageDestination = $setting->storage_destination;
     if (!is_string($storageDestination) || trim($storageDestination) === '') {
+      $this->logCameraSourceHealth(
+        $cameraSource,
+        'configuration_error',
+        'Storage destination is missing for raw data collection.'
+      );
       return false;
     }
 
     $normalizedStorageDestination = $this->normalizeStorageDestination($storageDestination);
     if ($normalizedStorageDestination === null) {
+      $this->logCameraSourceHealth(
+        $cameraSource,
+        'configuration_error',
+        'Storage destination is invalid for raw data collection.'
+      );
       return false;
     }
 
@@ -81,6 +102,11 @@ class RawDataCollectionFrameCaptureService
     }
 
     if (!$this->canCaptureNewFrame($setting, $existingFramePaths)) {
+      $this->logCameraSourceHealth(
+        $cameraSource,
+        'configuration_error',
+        'Collection lifecycle condition prevents capturing new frames.'
+      );
       return false;
     }
 
@@ -89,10 +115,18 @@ class RawDataCollectionFrameCaptureService
     $newFrameAbsolutePath = Storage::disk('local')->path($newFrameRelativePath);
 
     $ffmpeg = FFMpeg::create($this->buildFfmpegConfiguration($cameraSource));
+    $captureStartedAt = microtime(true);
 
     try {
       $ffmpeg->open($liveFeedUrl)->frame(TimeCode::fromSeconds(0))->save($newFrameAbsolutePath);
     } catch (Throwable $throwable) {
+      $delay = (int) max(0, round((microtime(true) - $captureStartedAt) * 1000));
+      $this->logCameraSourceHealth(
+        $cameraSource,
+        'connection_error',
+        'Unable to capture frame from live feed URL. Verify connectivity and stream format.',
+        $delay
+      );
       Log::warning('Failed to capture camera frame.', [
         'raw_data_collection_setting_id' => $setting->id,
         'camera_source_id' => $cameraSource->id,
@@ -103,12 +137,26 @@ class RawDataCollectionFrameCaptureService
     }
 
     if (!$this->isValidImageFrame($newFrameRelativePath)) {
+      $delay = (int) max(0, round((microtime(true) - $captureStartedAt) * 1000));
+      $this->logCameraSourceHealth(
+        $cameraSource,
+        'connection_error',
+        'Live feed output is not a valid image frame.',
+        $delay
+      );
       Storage::disk('local')->delete($newFrameRelativePath);
 
       return false;
     }
 
     $this->enforceRetentionLimits($setting, $this->listFramePaths($framesDirectory));
+    $delay = (int) max(0, round((microtime(true) - $captureStartedAt) * 1000));
+    $this->logCameraSourceHealth(
+      $cameraSource,
+      'collecting',
+      'Actively collecting data from camera source.',
+      $delay
+    );
 
     return true;
   }
@@ -320,6 +368,29 @@ class RawDataCollectionFrameCaptureService
     }
 
     return $normalizedExtension;
+  }
+
+  private function logCameraSourceHealth(
+    CameraSource $cameraSource,
+    string $state,
+    string $message,
+    ?int $delay = null
+  ): void
+  {
+    $normalizedState = strtolower(trim($state));
+    $normalizedMessage = trim($message);
+    $status = Str::limit(
+      sprintf('%s|%s', $normalizedState, $normalizedMessage),
+      255,
+      ''
+    );
+
+    CameraSourceHealthLog::query()->create([
+      'camera_source_id' => $cameraSource->id,
+      'status' => $status,
+      'delay' => $delay,
+      'logged_at' => now(),
+    ]);
   }
 
   /**

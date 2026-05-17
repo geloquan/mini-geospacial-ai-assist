@@ -21,6 +21,7 @@ class CameraSourceResource extends JsonResource
             'live_feed_url' => $this->live_feed_url,
             'camera_specification' => $this->camera_specification,
             'is_active' => $this->is_active,
+            'collection_status' => $this->collectionStatus(),
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];

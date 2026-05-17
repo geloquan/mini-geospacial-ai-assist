@@ -246,6 +246,7 @@ function App() {
           const liveFeedUrl = row.live_feed_url
           const cameraSpecification = row.camera_specification
           const isActive = row.is_active
+          const collectionStatus = row.collection_status
 
           if (typeof id !== 'number' || typeof locationId !== 'number' || typeof sourceName !== 'string') {
             return null
@@ -255,6 +256,34 @@ function App() {
             cameraSpecification !== null && typeof cameraSpecification === 'object'
               ? (cameraSpecification as Record<string, unknown>)
               : {}
+          const parsedCollectionStatus =
+            collectionStatus !== null && typeof collectionStatus === 'object'
+              ? (collectionStatus as Record<string, unknown>)
+              : {}
+          const normalizedIsActive =
+            typeof isActive === 'boolean'
+              ? isActive
+              : typeof isActive === 'number'
+                ? isActive === 1
+                : String(isActive) === '1'
+          const collectionState =
+            typeof parsedCollectionStatus.state === 'string'
+              ? parsedCollectionStatus.state
+              : normalizedIsActive
+                ? 'unknown'
+                : 'inactive'
+          const isCollecting =
+            typeof parsedCollectionStatus.is_collecting === 'boolean'
+              ? parsedCollectionStatus.is_collecting
+              : collectionState === 'collecting'
+          const collectionMessage =
+            typeof parsedCollectionStatus.message === 'string'
+              ? parsedCollectionStatus.message
+              : isCollecting
+                ? 'Actively collecting data.'
+                : collectionState === 'inactive'
+                  ? 'Camera source is inactive.'
+                  : 'Not actively collecting data.'
 
           return {
             id,
@@ -279,12 +308,10 @@ function App() {
               typeof parsedCameraSpecification.field_of_view === 'string'
                 ? parsedCameraSpecification.field_of_view
                 : '',
-            isActive:
-              typeof isActive === 'boolean'
-                ? isActive
-                : typeof isActive === 'number'
-                  ? isActive === 1
-                  : String(isActive) === '1',
+            isActive: normalizedIsActive,
+            collectionState,
+            isCollecting,
+            collectionMessage,
           }
         })
         .filter(
@@ -303,6 +330,9 @@ function App() {
             cameraFps: number | null
             cameraFov: string
             isActive: boolean
+            collectionState: string
+            isCollecting: boolean
+            collectionMessage: string
           } => cameraSource !== null,
         ),
     [cameraSourcesCatalogData?.rows],
@@ -449,11 +479,36 @@ function App() {
         .map((row) => {
           const id = row.id
           const sourceName = row.source_name
+          const collectionStatus = row.collection_status
+          const parsedCollectionStatus =
+            collectionStatus !== null && typeof collectionStatus === 'object'
+              ? (collectionStatus as Record<string, unknown>)
+              : {}
+          const collectionState =
+            typeof parsedCollectionStatus.state === 'string'
+              ? parsedCollectionStatus.state
+              : 'unknown'
+          const isCollecting =
+            typeof parsedCollectionStatus.is_collecting === 'boolean'
+              ? parsedCollectionStatus.is_collecting
+              : collectionState === 'collecting'
+          const collectionMessage =
+            typeof parsedCollectionStatus.message === 'string'
+              ? parsedCollectionStatus.message
+              : isCollecting
+                ? 'Actively collecting data.'
+                : 'Not actively collecting data.'
           return typeof id === 'number' && typeof sourceName === 'string'
-            ? { id, sourceName }
+            ? { id, sourceName, collectionState, isCollecting, collectionMessage }
             : null
         })
-        .filter((cameraSource): cameraSource is { id: number; sourceName: string } => cameraSource !== null),
+        .filter((cameraSource): cameraSource is {
+          id: number
+          sourceName: string
+          collectionState: string
+          isCollecting: boolean
+          collectionMessage: string
+        } => cameraSource !== null),
     [cameraSourceOptionsData?.rows],
   )
   const rawDataCollectionCameraNodes = useMemo(
@@ -1180,6 +1235,8 @@ function App() {
                         <th>camera_identifier</th>
                         <th>live_feed_url</th>
                         <th>is_active</th>
+                        <th>collection_status</th>
+                        <th>collection_message</th>
                         <th>actions</th>
                       </tr>
                       </thead>
@@ -1193,6 +1250,8 @@ function App() {
                           <td>{cameraSource.cameraIdentifier || <span className="table-null">—</span>}</td>
                           <td>{cameraSource.liveFeedUrl || <span className="table-null">—</span>}</td>
                           <td>{cameraSource.isActive ? 'true' : 'false'}</td>
+                          <td>{cameraSource.isCollecting ? 'collecting' : 'not_collecting'}</td>
+                          <td>{cameraSource.collectionMessage || <span className="table-null">—</span>}</td>
                           <td>
                             <button className="btn btn-ghost" type="button" onClick={() => onCameraSourceEdit(cameraSource.id)}>
                               Edit
@@ -1267,7 +1326,7 @@ function App() {
                       </div>
                       <div className="form-field">
                         <label className="form-label">Live Feed URL</label>
-                        <input className="form-input" type="url" value={cameraSourceForm.liveFeedUrl} onChange={(e) => setCameraSourceForm((c) => ({ ...c, liveFeedUrl: e.target.value }))} placeholder="rtsp://..." />
+                        <input className="form-input" type="url" value={cameraSourceForm.liveFeedUrl} onChange={(e) => setCameraSourceForm((c) => ({ ...c, liveFeedUrl: e.target.value }))} placeholder="https://example.com/stream or rtsp://..." />
                       </div>
                       <div className="form-field">
                         <label className="form-label">Vendor</label>
@@ -1539,7 +1598,7 @@ function App() {
                                 setSelectedRawDataCollectionSettingId(null)
                               }}
                             >
-                              Camera Source: {cameraNode.sourceName}
+                              Camera Source: {cameraNode.sourceName} ({cameraNode.isCollecting ? 'Collecting' : 'Not collecting'})
                             </button>
                             {selectedRawDataCollectionCameraSourceId === cameraNode.id && (
                               <div className="raw-data-tree-children">
@@ -1614,6 +1673,20 @@ function App() {
                             <div className="raw-data-metadata-item">
                               <span>Location ID</span>
                               <span>{renderMetadataValue(rawDataCollectionGalleryData.cameraSource.locationId)}</span>
+                            </div>
+                            <div className="raw-data-metadata-item">
+                              <span>Collection Status</span>
+                              <span>
+                                {renderMetadataValue(
+                                  rawDataCollectionGalleryData.cameraSource.collectionStatus?.isCollecting
+                                    ? 'collecting'
+                                    : 'not_collecting',
+                                )}
+                              </span>
+                            </div>
+                            <div className="raw-data-metadata-item">
+                              <span>Status Message</span>
+                              <span>{renderMetadataValue(rawDataCollectionGalleryData.cameraSource.collectionStatus?.message)}</span>
                             </div>
                           </div>
                           <div className="raw-data-metadata-card">

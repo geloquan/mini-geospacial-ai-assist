@@ -9,7 +9,10 @@ class CameraSourceService
 {
     public function listPaginated(int $perPage): LengthAwarePaginator
     {
-        return CameraSource::query()->latest()->paginate($perPage);
+        return CameraSource::query()
+            ->with('latestHealthLog')
+            ->latest()
+            ->paginate($perPage);
     }
 
     public function findById(int $id): CameraSource
