@@ -474,8 +474,17 @@ class RawDataCollectionFrameCaptureService
    */
   private function latestFrameLastModified(array $frames): ?int
   {
-    return collect($frames)
-      ->max('last_modified');
+    $latestFrameLastModified = collect($frames)->max('last_modified');
+
+    if (is_int($latestFrameLastModified)) {
+      return $latestFrameLastModified;
+    }
+
+    if (is_numeric($latestFrameLastModified)) {
+      return (int) $latestFrameLastModified;
+    }
+
+    return null;
   }
 
   /**

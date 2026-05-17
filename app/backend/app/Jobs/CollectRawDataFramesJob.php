@@ -11,11 +11,14 @@ class CollectRawDataFramesJob implements ShouldQueue
 {
     use Queueable;
 
-    public int $timeout = 660;
+    public int $timeout;
+    public string $queue = 'raw-data-collection';
+    private int $windowSeconds;
 
-    public function __construct(
-        private readonly int $windowSeconds = 600
-    ) {
+    public function __construct(int $windowSeconds = 600)
+    {
+        $this->windowSeconds = max(1, $windowSeconds);
+        $this->timeout = $this->windowSeconds + 60;
     }
 
     public function handle(RawDataCollectionFrameCaptureService $frameCaptureService): void
