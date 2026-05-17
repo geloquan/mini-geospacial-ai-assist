@@ -18,6 +18,7 @@ class RawDataCollectionFrameCaptureService
 {
   private const STATUS_SEPARATOR = '|';
   private const CAPTURE_WINDOW_SLEEP_SECONDS = 1;
+  private const FFMPEG_MAINTENANCE_INTERVAL_SECONDS = 10;
 
   public function captureScheduled(): int
   {
@@ -114,6 +115,97 @@ class RawDataCollectionFrameCaptureService
       $nextCaptureAtBySetting,
       array_flip($activeSettingIds)
     );
+
+    return $capturedCount;
+  }
+
+  public function captureScheduledWindowFfmpeg(int $windowSeconds = 600): int
+  {
+    $normalizedWindowSeconds = max(1, $windowSeconds);
+    $windowEndsAt = microtime(true) + $normalizedWindowSeconds;
+
+    /** @var array<int, array{process: resource, setting: RawDataCollectionSetting, frames_dir: string, camera_source: CameraSource, initial_frame_count: int}> $processMap */
+    $processMap = [];
+
+    RawDataCollectionSetting::query()
+      ->with('cameraSource.location')
+      ->where('collection_type', 'scheduled_capture')
+      ->where('is_active', true)
+      ->whereHas('cameraSource', static function ($query): void {
+        $query->where('is_active', true);
+      })
+      ->chunkById(100, function (Collection $settings) use (&$processMap): void {
+        foreach ($settings as $setting) {
+          if (!($setting instanceof RawDataCollectionSetting)) {
+            continue;
+          }
+
+          $process = $this->launchFfmpegProcess($setting);
+          if ($process === null) {
+            continue;
+          }
+
+          $cameraSource = $setting->cameraSource;
+          $framesDir = $this->resolveFramesDirectory($setting);
+          if (!($cameraSource instanceof CameraSource) || $framesDir === null) {
+            proc_terminate($process);
+            proc_close($process);
+            continue;
+          }
+
+          $processMap[(int) $setting->id] = [
+            'process' => $process,
+            'setting' => $setting,
+            'frames_dir' => $framesDir,
+            'camera_source' => $cameraSource,
+            'initial_frame_count' => count($this->listFrameMetadata($framesDir)),
+          ];
+        }
+      });
+
+    while (microtime(true) < $windowEndsAt) {
+      $remainingSeconds = $windowEndsAt - microtime(true);
+      sleep((int) min(self::FFMPEG_MAINTENANCE_INTERVAL_SECONDS, max(1, ceil($remainingSeconds))));
+
+      foreach ($processMap as $settingId => $info) {
+        $status = proc_get_status($info['process']);
+        if (!$status['running']) {
+          $this->logCameraSourceHealth(
+            $info['camera_source'],
+            'connection_error',
+            'FFmpeg frame capture process exited unexpectedly.'
+          );
+          proc_close($info['process']);
+          unset($processMap[$settingId]);
+          continue;
+        }
+
+        $frames = $this->listFrameMetadata($info['frames_dir']);
+        $this->enforceRetentionLimits($info['setting'], $frames);
+
+        if (!$this->canCaptureNewFrame($info['setting'], $frames)) {
+          proc_terminate($info['process']);
+          proc_close($info['process']);
+          unset($processMap[$settingId]);
+          $this->logCameraSourceHealth(
+            $info['camera_source'],
+            'collecting',
+            'Collection lifecycle condition reached; FFmpeg capture stopped.'
+          );
+        }
+      }
+    }
+
+    $capturedCount = 0;
+    foreach ($processMap as $info) {
+      $finalCount = count($this->listFrameMetadata($info['frames_dir']));
+      $capturedCount += max(0, $finalCount - $info['initial_frame_count']);
+      $status = proc_get_status($info['process']);
+      if ($status['running']) {
+        proc_terminate($info['process']);
+      }
+      proc_close($info['process']);
+    }
 
     return $capturedCount;
   }
@@ -322,6 +414,134 @@ class RawDataCollectionFrameCaptureService
         static fn(array $frame): bool => $frame['path'] !== $oldestFrame['path']
       ));
     }
+  }
+
+  /**
+   * Launches a persistent FFmpeg process that captures frames from the camera's RTSP stream
+   * at the configured sampling interval and saves them using strftime-based filenames.
+   *
+   * @return resource|null
+   */
+  private function launchFfmpegProcess(RawDataCollectionSetting $setting): mixed
+  {
+    $cameraSource = $setting->cameraSource;
+    if (!($cameraSource instanceof CameraSource)) {
+      return null;
+    }
+
+    if (!$setting->is_active || !$cameraSource->is_active) {
+      return null;
+    }
+
+    $liveFeedUrl = $cameraSource->live_feed_url;
+    if (!is_string($liveFeedUrl) || trim($liveFeedUrl) === '') {
+      $this->logCameraSourceHealth(
+        $cameraSource,
+        'configuration_error',
+        'Live feed URL is missing for the camera source.'
+      );
+      return null;
+    }
+
+    $storageDestination = $setting->storage_destination;
+    if (!is_string($storageDestination) || trim($storageDestination) === '') {
+      $this->logCameraSourceHealth(
+        $cameraSource,
+        'configuration_error',
+        'Storage destination is missing for raw data collection.'
+      );
+      return null;
+    }
+
+    $normalizedStorageDestination = $this->normalizeStorageDestination($storageDestination);
+    if ($normalizedStorageDestination === null) {
+      $this->logCameraSourceHealth(
+        $cameraSource,
+        'configuration_error',
+        'Storage destination is invalid for raw data collection.'
+      );
+      return null;
+    }
+
+    $framesDirectory = $normalizedStorageDestination . '/frames';
+    Storage::disk('local')->makeDirectory($framesDirectory);
+
+    $existingFrames = $this->listFrameMetadata($framesDirectory);
+    if (!$this->canCaptureNewFrame($setting, $existingFrames)) {
+      $this->logCameraSourceHealth(
+        $cameraSource,
+        'configuration_error',
+        'Collection lifecycle condition prevents capturing new frames.'
+      );
+      return null;
+    }
+
+    $intervalSeconds = $this->samplingIntervalToSeconds($setting, $cameraSource);
+    $outputExtension = $this->resolveOutputExtension($cameraSource);
+    $absoluteFramesDir = Storage::disk('local')->path($framesDirectory);
+    $outputPattern = $absoluteFramesDir . '/frame_%Y%m%d_%H%M%S.' . $outputExtension;
+
+    $cmd = [
+      $this->resolveFfmpegBinary($cameraSource),
+      '-rtsp_transport', 'tcp',
+      '-i', $liveFeedUrl,
+      '-vf', 'fps=1/' . $intervalSeconds,
+      '-strftime', '1',
+      $outputPattern,
+    ];
+
+    $descriptors = [
+      0 => ['pipe', 'r'],
+      1 => ['file', '/dev/null', 'a'],
+      2 => ['file', '/dev/null', 'a'],
+    ];
+
+    $process = proc_open($cmd, $descriptors, $pipes);
+
+    if (!is_resource($process)) {
+      $this->logCameraSourceHealth(
+        $cameraSource,
+        'connection_error',
+        'Failed to launch FFmpeg frame capture process.'
+      );
+      return null;
+    }
+
+    if (isset($pipes[0])) {
+      fclose($pipes[0]);
+    }
+
+    $this->logCameraSourceHealth(
+      $cameraSource,
+      'collecting',
+      'Started continuous FFmpeg frame capture.'
+    );
+
+    return $process;
+  }
+
+  private function resolveFramesDirectory(RawDataCollectionSetting $setting): ?string
+  {
+    $storageDestination = $setting->storage_destination;
+    if (!is_string($storageDestination) || trim($storageDestination) === '') {
+      return null;
+    }
+
+    $normalized = $this->normalizeStorageDestination($storageDestination);
+    return $normalized !== null ? $normalized . '/frames' : null;
+  }
+
+  private function resolveFfmpegBinary(CameraSource $cameraSource): string
+  {
+    $cameraSpecification = $cameraSource->camera_specification;
+    if (is_array($cameraSpecification)) {
+      $bin = $cameraSpecification['ffmpeg_binaries'] ?? null;
+      if (is_string($bin) && trim($bin) !== '') {
+        return trim($bin);
+      }
+    }
+
+    return 'ffmpeg';
   }
 
   /**

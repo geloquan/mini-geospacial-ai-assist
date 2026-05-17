@@ -23,7 +23,7 @@ class CollectRawDataFramesJob implements ShouldQueue
 
   public function handle(RawDataCollectionFrameCaptureService $frameCaptureService): void
   {
-    $capturedCount = $frameCaptureService->captureScheduledWindow($this->windowSeconds);
+    $capturedCount = $frameCaptureService->captureScheduledWindowFfmpeg($this->windowSeconds);
 
     Log::info('Completed scheduled raw data frame collection job.', [
       'window_seconds' => $this->windowSeconds,
