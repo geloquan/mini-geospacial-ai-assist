@@ -50,9 +50,10 @@ class RawDataCollectionFrameCaptureService
     $normalizedWindowSeconds = max(1, $windowSeconds);
     $capturedCount = 0;
     $windowEndsAt = microtime(true) + $normalizedWindowSeconds;
+    $nextCaptureAtBySetting = [];
 
     while (microtime(true) < $windowEndsAt) {
-      $capturedCount += $this->captureScheduled();
+      $capturedCount += $this->captureScheduledWithHints($nextCaptureAtBySetting);
 
       $remainingSeconds = (int) ceil($windowEndsAt - microtime(true));
 
@@ -60,6 +61,60 @@ class RawDataCollectionFrameCaptureService
         sleep(min(self::CAPTURE_WINDOW_SLEEP_SECONDS, $remainingSeconds));
       }
     }
+
+    return $capturedCount;
+  }
+
+  /**
+   * @param array<int, int> $nextCaptureAtBySetting
+   */
+  private function captureScheduledWithHints(array &$nextCaptureAtBySetting): int
+  {
+    $capturedCount = 0;
+    $currentTimestamp = time();
+    $activeSettingIds = [];
+
+    RawDataCollectionSetting::query()
+      ->with('cameraSource.location')
+      ->where('collection_type', 'scheduled_capture')
+      ->where('is_active', true)
+      ->whereHas('cameraSource', static function ($query): void {
+        $query->where('is_active', true);
+      })
+      ->chunkById(100, function (Collection $settings) use (&$capturedCount, &$nextCaptureAtBySetting, $currentTimestamp, &$activeSettingIds): void {
+        foreach ($settings as $setting) {
+          if (!($setting instanceof RawDataCollectionSetting)) {
+            continue;
+          }
+
+          $settingId = (int) $setting->id;
+          $activeSettingIds[] = $settingId;
+          $nextCaptureAt = $nextCaptureAtBySetting[$settingId] ?? null;
+          if (is_int($nextCaptureAt) && $nextCaptureAt > $currentTimestamp) {
+            continue;
+          }
+
+          if (!$this->captureFrame($setting)) {
+            continue;
+          }
+
+          $capturedCount++;
+          $cameraSource = $setting->cameraSource;
+          if ($cameraSource instanceof CameraSource) {
+            $nextCaptureAtBySetting[$settingId] = $currentTimestamp + $this->samplingIntervalToSeconds($setting, $cameraSource);
+          }
+        }
+      });
+
+    if ($activeSettingIds === []) {
+      $nextCaptureAtBySetting = [];
+      return $capturedCount;
+    }
+
+    $nextCaptureAtBySetting = array_intersect_key(
+      $nextCaptureAtBySetting,
+      array_flip($activeSettingIds)
+    );
 
     return $capturedCount;
   }
@@ -186,11 +241,7 @@ class RawDataCollectionFrameCaptureService
       return false;
     }
 
-    $existingFrames[] = [
-      'path' => $newFrameRelativePath,
-      'last_modified' => Storage::disk('local')->lastModified($newFrameRelativePath),
-      'size' => Storage::disk('local')->size($newFrameRelativePath),
-    ];
+    $existingFrames[] = $this->buildCapturedFrameMetadata($newFrameRelativePath, $newFrameAbsolutePath);
     $this->enforceRetentionLimits($setting, $existingFrames);
     $delay = $this->elapsedCaptureDelay($captureStartedAt);
     $this->logCameraSourceHealth(
@@ -440,6 +491,33 @@ class RawDataCollectionFrameCaptureService
   private function elapsedCaptureDelay(float $captureStartedAt): int
   {
     return (int) max(0, round((microtime(true) - $captureStartedAt) * 1000));
+  }
+
+  /**
+   * @return array{path: string, last_modified: int, size: int}
+   */
+  private function buildCapturedFrameMetadata(string $relativePath, string $absolutePath): array
+  {
+    $stats = @stat($absolutePath);
+
+    if (is_array($stats)) {
+      $lastModified = $stats['mtime'] ?? null;
+      $size = $stats['size'] ?? null;
+
+      if (is_int($lastModified) && is_int($size)) {
+        return [
+          'path' => $relativePath,
+          'last_modified' => $lastModified,
+          'size' => $size,
+        ];
+      }
+    }
+
+    return [
+      'path' => $relativePath,
+      'last_modified' => Storage::disk('local')->lastModified($relativePath),
+      'size' => Storage::disk('local')->size($relativePath),
+    ];
   }
 
   /**
