@@ -72,6 +72,7 @@ class RawDataCollectionSettingService
 
         return in_array($extension, ['jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp', 'tif', 'tiff'], true);
       })
+      ->map(static fn(string $path): string => Storage::disk('local')->path($path))
       ->values()
       ->all();
 
