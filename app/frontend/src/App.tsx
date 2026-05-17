@@ -84,6 +84,43 @@ const CATALOG_TABLES: Array<{ endpoint: CatalogResourceEndpoint; label: string }
   { endpoint: 'catalog/raw-data-collection-settings', label: 'Raw Data Collection Settings' },
 ]
 
+const toBooleanFlag = (value: unknown): boolean =>
+  typeof value === 'boolean'
+    ? value
+    : typeof value === 'number'
+      ? value === 1
+      : String(value) === '1'
+
+const parseCollectionStatus = (
+  value: unknown,
+  fallbackIsActive: boolean,
+): { collectionState: string; isCollecting: boolean; collectionMessage: string } => {
+  const parsedCollectionStatus =
+    value !== null && typeof value === 'object'
+      ? (value as Record<string, unknown>)
+      : {}
+  const collectionState =
+    typeof parsedCollectionStatus.state === 'string'
+      ? parsedCollectionStatus.state
+      : fallbackIsActive
+        ? 'unknown'
+        : 'inactive'
+  const isCollecting =
+    typeof parsedCollectionStatus.is_collecting === 'boolean'
+      ? parsedCollectionStatus.is_collecting
+      : collectionState === 'collecting'
+  const collectionMessage =
+    typeof parsedCollectionStatus.message === 'string'
+      ? parsedCollectionStatus.message
+      : isCollecting
+        ? 'Actively collecting data.'
+        : collectionState === 'inactive'
+          ? 'Camera source is inactive.'
+          : 'Not actively collecting data.'
+
+  return { collectionState, isCollecting, collectionMessage }
+}
+
 function App() {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
@@ -256,34 +293,9 @@ function App() {
             cameraSpecification !== null && typeof cameraSpecification === 'object'
               ? (cameraSpecification as Record<string, unknown>)
               : {}
-          const parsedCollectionStatus =
-            collectionStatus !== null && typeof collectionStatus === 'object'
-              ? (collectionStatus as Record<string, unknown>)
-              : {}
-          const normalizedIsActive =
-            typeof isActive === 'boolean'
-              ? isActive
-              : typeof isActive === 'number'
-                ? isActive === 1
-                : String(isActive) === '1'
-          const collectionState =
-            typeof parsedCollectionStatus.state === 'string'
-              ? parsedCollectionStatus.state
-              : normalizedIsActive
-                ? 'unknown'
-                : 'inactive'
-          const isCollecting =
-            typeof parsedCollectionStatus.is_collecting === 'boolean'
-              ? parsedCollectionStatus.is_collecting
-              : collectionState === 'collecting'
-          const collectionMessage =
-            typeof parsedCollectionStatus.message === 'string'
-              ? parsedCollectionStatus.message
-              : isCollecting
-                ? 'Actively collecting data.'
-                : collectionState === 'inactive'
-                  ? 'Camera source is inactive.'
-                  : 'Not actively collecting data.'
+          const normalizedIsActive = toBooleanFlag(isActive)
+          const { collectionState, isCollecting, collectionMessage } =
+            parseCollectionStatus(collectionStatus, normalizedIsActive)
 
           return {
             id,
@@ -480,24 +492,9 @@ function App() {
           const id = row.id
           const sourceName = row.source_name
           const collectionStatus = row.collection_status
-          const parsedCollectionStatus =
-            collectionStatus !== null && typeof collectionStatus === 'object'
-              ? (collectionStatus as Record<string, unknown>)
-              : {}
-          const collectionState =
-            typeof parsedCollectionStatus.state === 'string'
-              ? parsedCollectionStatus.state
-              : 'unknown'
-          const isCollecting =
-            typeof parsedCollectionStatus.is_collecting === 'boolean'
-              ? parsedCollectionStatus.is_collecting
-              : collectionState === 'collecting'
-          const collectionMessage =
-            typeof parsedCollectionStatus.message === 'string'
-              ? parsedCollectionStatus.message
-              : isCollecting
-                ? 'Actively collecting data.'
-                : 'Not actively collecting data.'
+          const isActive = toBooleanFlag(row.is_active)
+          const { collectionState, isCollecting, collectionMessage } =
+            parseCollectionStatus(collectionStatus, isActive)
           return typeof id === 'number' && typeof sourceName === 'string'
             ? { id, sourceName, collectionState, isCollecting, collectionMessage }
             : null
@@ -1250,7 +1247,7 @@ function App() {
                           <td>{cameraSource.cameraIdentifier || <span className="table-null">—</span>}</td>
                           <td>{cameraSource.liveFeedUrl || <span className="table-null">—</span>}</td>
                           <td>{cameraSource.isActive ? 'true' : 'false'}</td>
-                          <td>{cameraSource.isCollecting ? 'collecting' : 'not_collecting'}</td>
+                          <td>{cameraSource.isCollecting ? 'Collecting' : 'Not collecting'}</td>
                           <td>{cameraSource.collectionMessage || <span className="table-null">—</span>}</td>
                           <td>
                             <button className="btn btn-ghost" type="button" onClick={() => onCameraSourceEdit(cameraSource.id)}>

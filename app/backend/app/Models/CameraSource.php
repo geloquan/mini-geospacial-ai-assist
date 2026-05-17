@@ -19,6 +19,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 ])]
 class CameraSource extends Model
 {
+    private const HEALTH_STATUS_SEPARATOR = '|';
+
     /**
      * @return array<string, string>
      */
@@ -123,7 +125,7 @@ class CameraSource extends Model
             return ['unknown', false, 'No camera collection status has been reported yet.'];
         }
 
-        [$state, $message] = array_pad(explode('|', $rawStatus, 2), 2, '');
+        [$state, $message] = array_pad(explode(self::HEALTH_STATUS_SEPARATOR, $rawStatus, 2), 2, '');
         $normalizedState = strtolower(trim($state));
         $normalizedMessage = trim($message);
 

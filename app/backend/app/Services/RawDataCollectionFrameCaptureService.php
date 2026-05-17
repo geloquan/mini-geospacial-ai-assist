@@ -15,6 +15,8 @@ use Throwable;
 
 class RawDataCollectionFrameCaptureService
 {
+  private const STATUS_SEPARATOR = '|';
+
   public function captureScheduled(): int
   {
     $capturedCount = 0;
@@ -120,7 +122,7 @@ class RawDataCollectionFrameCaptureService
     try {
       $ffmpeg->open($liveFeedUrl)->frame(TimeCode::fromSeconds(0))->save($newFrameAbsolutePath);
     } catch (Throwable $throwable) {
-      $delay = (int) max(0, round((microtime(true) - $captureStartedAt) * 1000));
+      $delay = $this->elapsedCaptureDelay($captureStartedAt);
       $this->logCameraSourceHealth(
         $cameraSource,
         'connection_error',
@@ -137,7 +139,7 @@ class RawDataCollectionFrameCaptureService
     }
 
     if (!$this->isValidImageFrame($newFrameRelativePath)) {
-      $delay = (int) max(0, round((microtime(true) - $captureStartedAt) * 1000));
+      $delay = $this->elapsedCaptureDelay($captureStartedAt);
       $this->logCameraSourceHealth(
         $cameraSource,
         'connection_error',
@@ -150,7 +152,7 @@ class RawDataCollectionFrameCaptureService
     }
 
     $this->enforceRetentionLimits($setting, $this->listFramePaths($framesDirectory));
-    $delay = (int) max(0, round((microtime(true) - $captureStartedAt) * 1000));
+    $delay = $this->elapsedCaptureDelay($captureStartedAt);
     $this->logCameraSourceHealth(
       $cameraSource,
       'collecting',
@@ -380,7 +382,7 @@ class RawDataCollectionFrameCaptureService
     $normalizedState = strtolower(trim($state));
     $normalizedMessage = trim($message);
     $status = Str::limit(
-      sprintf('%s|%s', $normalizedState, $normalizedMessage),
+      sprintf('%s%s%s', $normalizedState, self::STATUS_SEPARATOR, $normalizedMessage),
       255,
       ''
     );
@@ -391,6 +393,11 @@ class RawDataCollectionFrameCaptureService
       'delay' => $delay,
       'logged_at' => now(),
     ]);
+  }
+
+  private function elapsedCaptureDelay(float $captureStartedAt): int
+  {
+    return (int) max(0, round((microtime(true) - $captureStartedAt) * 1000));
   }
 
   /**
