@@ -14,6 +14,8 @@ class CollectRawDataFramesJob implements ShouldQueue
 {
   use Queueable;
 
+  private const INTERVAL_CACHE_TTL_MULTIPLIER = 2;
+
   public int $timeout = 60;
 
   public function __construct()
@@ -49,6 +51,7 @@ class CollectRawDataFramesJob implements ShouldQueue
     $deferredInFlight = 0;
     $dispatchedCount = 0;
     $now = time();
+    $loadAverages = function_exists('sys_getloadavg') ? sys_getloadavg() : null;
 
     foreach ($scheduledSettings as $setting) {
       if ($dispatchBudget <= 0) {
@@ -75,7 +78,7 @@ class CollectRawDataFramesJob implements ShouldQueue
       Cache::put(
         $nextDueCacheKey,
         $now + $intervalSeconds,
-        now()->addSeconds(max($intervalCacheTtlFloorSeconds, $intervalSeconds * 2))
+        now()->addSeconds(max($intervalCacheTtlFloorSeconds, $intervalSeconds * self::INTERVAL_CACHE_TTL_MULTIPLIER))
       );
       $dispatchBudget--;
       $dispatchedCount++;
@@ -92,9 +95,9 @@ class CollectRawDataFramesJob implements ShouldQueue
       'deferred_no_capacity_count' => $deferredNoCapacity,
       'worker_memory_usage_bytes' => memory_get_usage(true),
       'worker_memory_peak_usage_bytes' => memory_get_peak_usage(true),
-      'worker_load_avg_1m' => function_exists('sys_getloadavg') ? (sys_getloadavg()[0] ?? null) : null,
-      'worker_load_avg_5m' => function_exists('sys_getloadavg') ? (sys_getloadavg()[1] ?? null) : null,
-      'worker_load_avg_15m' => function_exists('sys_getloadavg') ? (sys_getloadavg()[2] ?? null) : null,
+      'worker_load_avg_1m' => is_array($loadAverages) ? ($loadAverages[0] ?? null) : null,
+      'worker_load_avg_5m' => is_array($loadAverages) ? ($loadAverages[1] ?? null) : null,
+      'worker_load_avg_15m' => is_array($loadAverages) ? ($loadAverages[2] ?? null) : null,
     ]);
   }
 }
