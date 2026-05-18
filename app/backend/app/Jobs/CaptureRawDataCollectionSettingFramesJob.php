@@ -13,7 +13,7 @@ class CaptureRawDataCollectionSettingFramesJob implements ShouldQueue
 {
   use Queueable;
 
-  private const FPS_PRECISION = 6;
+  private const FPS_DECIMAL_PLACES = 6;
 
   public int $tries = 1;
   public int $timeout = 120;
@@ -34,7 +34,7 @@ class CaptureRawDataCollectionSettingFramesJob implements ShouldQueue
 
     try {
       $captured = $frameCaptureService->captureScheduledById($this->rawDataCollectionSettingId);
-      $targetFps = round(1 / $this->intervalSeconds, self::FPS_PRECISION);
+      $targetFps = round(1 / $this->intervalSeconds, self::FPS_DECIMAL_PLACES);
 
       Log::info('Completed raw data frame capture job for setting.', [
         'raw_data_collection_setting_id' => $this->rawDataCollectionSettingId,

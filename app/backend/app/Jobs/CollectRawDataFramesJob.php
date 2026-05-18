@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Jobs\CaptureRawDataCollectionSettingFramesJob;
 use App\Models\RawDataCollectionSetting;
 use App\Services\RawDataCollectionFrameCaptureService;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -23,11 +24,12 @@ class CollectRawDataFramesJob implements ShouldQueue
 
   public function handle(RawDataCollectionFrameCaptureService $frameCaptureService): void
   {
-    $maxCamerasPerNode = max(1, (int) config('raw_data_collection.max_cameras_per_node', 50));
-    $maxDispatchPerTick = max(1, (int) config('raw_data_collection.max_dispatch_per_tick', 10));
-    $jobLockTtlSeconds = max(5, (int) config('raw_data_collection.capture_job_lock_ttl_seconds', 120));
-    $intervalCacheTtlFloorSeconds = max(5, (int) config('raw_data_collection.interval_due_cache_ttl_floor_seconds', 60));
-    $intervalCacheTtlMultiplier = max(1, (int) config('raw_data_collection.interval_due_cache_ttl_multiplier', 2));
+    $dispatchConfig = $this->resolveDispatchConfig();
+    $maxCamerasPerNode = $dispatchConfig['max_cameras_per_node'];
+    $maxDispatchPerTick = $dispatchConfig['max_dispatch_per_tick'];
+    $jobLockTtlSeconds = $dispatchConfig['capture_job_lock_ttl_seconds'];
+    $intervalCacheTtlFloorSeconds = $dispatchConfig['interval_due_cache_ttl_floor_seconds'];
+    $intervalCacheTtlMultiplier = $dispatchConfig['interval_due_cache_ttl_multiplier'];
     $baseScheduledSettingsQuery = RawDataCollectionSetting::query()
       ->where('collection_type', 'scheduled_capture')
       ->where('is_active', true)
@@ -98,5 +100,25 @@ class CollectRawDataFramesJob implements ShouldQueue
       'worker_load_avg_5m' => is_array($loadAverages) ? ($loadAverages[1] ?? null) : null,
       'worker_load_avg_15m' => is_array($loadAverages) ? ($loadAverages[2] ?? null) : null,
     ]);
+  }
+
+  /**
+   * @return array{
+   *   max_cameras_per_node: int,
+   *   max_dispatch_per_tick: int,
+   *   capture_job_lock_ttl_seconds: int,
+   *   interval_due_cache_ttl_floor_seconds: int,
+   *   interval_due_cache_ttl_multiplier: int
+   * }
+   */
+  private function resolveDispatchConfig(): array
+  {
+    return [
+      'max_cameras_per_node' => max(1, (int) config('raw_data_collection.max_cameras_per_node', 50)),
+      'max_dispatch_per_tick' => max(1, (int) config('raw_data_collection.max_dispatch_per_tick', 10)),
+      'capture_job_lock_ttl_seconds' => max(5, (int) config('raw_data_collection.capture_job_lock_ttl_seconds', 120)),
+      'interval_due_cache_ttl_floor_seconds' => max(5, (int) config('raw_data_collection.interval_due_cache_ttl_floor_seconds', 60)),
+      'interval_due_cache_ttl_multiplier' => max(1, (int) config('raw_data_collection.interval_due_cache_ttl_multiplier', 2)),
+    ];
   }
 }

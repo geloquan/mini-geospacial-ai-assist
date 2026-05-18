@@ -38,18 +38,19 @@ class UpdateRawDataCollectionSettingRequest extends FormRequest
     public function withValidator(Validator $validator): void
     {
         $validator->after(function (Validator $validator): void {
-            $rawDataCollectionSetting = $this->route('rawDataCollectionSetting');
+            $routeSetting = $this->route('rawDataCollectionSetting');
+            $rawDataCollectionSetting = is_object($routeSetting) ? $routeSetting : null;
             $collectionType = $this->input(
                 'collection_type',
-                is_object($rawDataCollectionSetting) ? $rawDataCollectionSetting->collection_type : null
+                $rawDataCollectionSetting?->collection_type
             );
             $frameSamplingIntervalUnit = $this->input(
                 'frame_sampling_interval_unit',
-                is_object($rawDataCollectionSetting) ? $rawDataCollectionSetting->frame_sampling_interval_unit : null
+                $rawDataCollectionSetting?->frame_sampling_interval_unit
             );
             $frameSamplingIntervalValue = (int) $this->input(
                 'frame_sampling_interval_value',
-                is_object($rawDataCollectionSetting) ? $rawDataCollectionSetting->frame_sampling_interval_value : 0
+                $rawDataCollectionSetting?->frame_sampling_interval_value ?? 0
             );
 
             if (

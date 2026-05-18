@@ -232,6 +232,10 @@ class RawDataCollectionFrameCaptureService
   {
     $cameraSource = $setting->cameraSource;
     if (!($cameraSource instanceof CameraSource)) {
+      Log::warning('Falling back to 1-second sampling interval due to missing camera source.', [
+        'raw_data_collection_setting_id' => $setting->id,
+      ]);
+
       return 1;
     }
 
