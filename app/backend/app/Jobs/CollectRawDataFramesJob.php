@@ -55,6 +55,7 @@ class CollectRawDataFramesJob implements ShouldQueue
     if ($remainingCapacity > 0) {
       $wrappedSettings = (clone $baseScheduledSettingsQuery)
         ->with('cameraSource')
+        ->where('id', '<=', $lastDispatchedSettingId)
         ->orderBy('id')
         ->limit($remainingCapacity)
         ->get();
@@ -78,7 +79,7 @@ class CollectRawDataFramesJob implements ShouldQueue
       $lastEvaluatedSettingId = (int) $setting->id;
 
       if ($dispatchBudget <= 0) {
-        $deferredNoCapacity += max(0, $scheduledSettingsCount - $currentSettingIndex);
+        $deferredNoCapacity += $scheduledSettings->slice($currentSettingIndex - 1)->count();
         break;
       }
 
