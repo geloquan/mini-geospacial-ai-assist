@@ -49,7 +49,7 @@ class StoreRawDataCollectionSettingRequest extends FormRequest
             ) {
                 $validator->errors()->add(
                     'frame_sampling_interval_unit',
-                    'Use frame_sampling_interval_unit=seconds and frame_sampling_interval_value=1 for 1 FPS scheduled capture.'
+                    'For 1 FPS scheduled capture, use unit "seconds" with interval value "1".'
                 );
             }
         });

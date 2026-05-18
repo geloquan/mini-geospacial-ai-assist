@@ -14,8 +14,6 @@ class CollectRawDataFramesJob implements ShouldQueue
 {
   use Queueable;
 
-  private const INTERVAL_CACHE_TTL_MULTIPLIER = 2;
-
   public int $timeout = 60;
 
   public function __construct()
@@ -29,6 +27,7 @@ class CollectRawDataFramesJob implements ShouldQueue
     $maxDispatchPerTick = max(1, (int) config('raw_data_collection.max_dispatch_per_tick', 10));
     $jobLockTtlSeconds = max(5, (int) config('raw_data_collection.capture_job_lock_ttl_seconds', 120));
     $intervalCacheTtlFloorSeconds = max(5, (int) config('raw_data_collection.interval_due_cache_ttl_floor_seconds', 60));
+    $intervalCacheTtlMultiplier = max(1, (int) config('raw_data_collection.interval_due_cache_ttl_multiplier', 2));
     $baseScheduledSettingsQuery = RawDataCollectionSetting::query()
       ->where('collection_type', 'scheduled_capture')
       ->where('is_active', true)
@@ -78,7 +77,7 @@ class CollectRawDataFramesJob implements ShouldQueue
       Cache::put(
         $nextDueCacheKey,
         $now + $intervalSeconds,
-        now()->addSeconds(max($intervalCacheTtlFloorSeconds, $intervalSeconds * self::INTERVAL_CACHE_TTL_MULTIPLIER))
+        now()->addSeconds(max($intervalCacheTtlFloorSeconds, $intervalSeconds * $intervalCacheTtlMultiplier))
       );
       $dispatchBudget--;
       $dispatchedCount++;
