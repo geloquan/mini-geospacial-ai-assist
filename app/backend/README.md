@@ -40,7 +40,6 @@ Tune these environment variables to match validated node capacity and worker siz
 
 - `RAW_DATA_COLLECTION_MAX_CAMERAS_PER_NODE` (default: `50`)
 - `RAW_DATA_COLLECTION_MAX_DISPATCH_PER_TICK` (default: `10`)
-- `RAW_DATA_COLLECTION_MAX_ACTIVE_JOBS` (default: `10`)
 - `RAW_DATA_COLLECTION_CAPTURE_JOB_LOCK_TTL_SECONDS` (default: `120`)
 
 Run dedicated workers for this queue and scale horizontally as camera count grows, for example:

@@ -13,6 +13,7 @@ class CaptureRawDataCollectionSettingFramesJob implements ShouldQueue
 {
   use Queueable;
 
+  public int $tries = 1;
   public int $timeout = 120;
 
   public function __construct(
@@ -24,10 +25,7 @@ class CaptureRawDataCollectionSettingFramesJob implements ShouldQueue
 
   public function handle(RawDataCollectionFrameCaptureService $frameCaptureService): void
   {
-    $counterCacheKey = (string) config('raw_data_collection.active_jobs_counter_cache_key', 'raw-data-collection:active-jobs');
     $captureLockCacheKey = sprintf('raw-data-collection:setting:%d:capture-lock', $this->rawDataCollectionSettingId);
-
-    Cache::increment($counterCacheKey);
     $captureStartedAt = microtime(true);
 
     try {
@@ -52,11 +50,6 @@ class CaptureRawDataCollectionSettingFramesJob implements ShouldQueue
 
       throw $throwable;
     } finally {
-      $currentCounter = Cache::decrement($counterCacheKey);
-      if ((int) $currentCounter < 0) {
-        Cache::put($counterCacheKey, 0, now()->addMinutes(10));
-      }
-
       Cache::forget($captureLockCacheKey);
     }
   }
