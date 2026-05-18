@@ -42,17 +42,15 @@ class CollectRawDataFramesJob implements ShouldQueue
     $activeScheduledSettingsCount = (clone $baseScheduledSettingsQuery)->count();
     $dispatchCursorCacheKey = 'raw-data-collection:dispatch-cursor:last-setting-id';
     $lastDispatchedSettingId = (int) Cache::get($dispatchCursorCacheKey, 0);
-    $scheduledSettings = collect();
     $remainingCapacity = $maxCamerasPerNode;
 
-    $nextSettings = (clone $baseScheduledSettingsQuery)
+    $scheduledSettings = (clone $baseScheduledSettingsQuery)
       ->with('cameraSource')
       ->where('id', '>', $lastDispatchedSettingId)
       ->orderBy('id')
       ->limit($remainingCapacity)
       ->get();
-    $scheduledSettings = $scheduledSettings->concat($nextSettings);
-    $remainingCapacity -= $nextSettings->count();
+    $remainingCapacity -= $scheduledSettings->count();
 
     if ($remainingCapacity > 0) {
       $wrappedSettings = (clone $baseScheduledSettingsQuery)
@@ -80,7 +78,7 @@ class CollectRawDataFramesJob implements ShouldQueue
       $lastEvaluatedSettingId = (int) $setting->id;
 
       if ($dispatchBudget <= 0) {
-        $deferredNoCapacity += max(0, $scheduledSettingsCount - $currentSettingIndex + 1);
+        $deferredNoCapacity += max(0, $scheduledSettingsCount - $currentSettingIndex);
         break;
       }
 
