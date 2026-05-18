@@ -41,7 +41,7 @@ class CollectRawDataFramesJob implements ShouldQueue
 
     $activeScheduledSettingsCount = (clone $baseScheduledSettingsQuery)->count();
     $dispatchCursorCacheKey = 'raw-data-collection:dispatch-cursor:last-setting-id';
-    $lastDispatchedSettingId = max(0, (int) Cache::get($dispatchCursorCacheKey, 0));
+    $lastDispatchedSettingId = (int) Cache::get($dispatchCursorCacheKey, 0);
     $scheduledSettings = collect();
     $remainingCapacity = $maxCamerasPerNode;
 
