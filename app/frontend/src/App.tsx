@@ -916,6 +916,16 @@ function App() {
       setRawDataCollectionSettingFormError('Frame sampling interval must be at least 1.')
       return
     }
+    if (
+      rawDataCollectionSettingForm.collectionType === 'scheduled_capture'
+      && rawDataCollectionSettingForm.frameSamplingIntervalUnit === 'frames'
+      && Number(rawDataCollectionSettingForm.frameSamplingIntervalValue) === 1
+    ) {
+      setRawDataCollectionSettingFormError(
+        'For 1 FPS scheduled capture, use frame sampling interval unit "seconds" with value "1".',
+      )
+      return
+    }
 
     try {
       const payload = {

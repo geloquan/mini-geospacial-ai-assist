@@ -4,6 +4,7 @@ namespace App\Http\Requests\Api;
 
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 class StoreRawDataCollectionSettingRequest extends FormRequest
 {
@@ -32,5 +33,25 @@ class StoreRawDataCollectionSettingRequest extends FormRequest
             ])],
             'is_active' => ['sometimes', 'boolean'],
         ];
+    }
+
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator): void {
+            $collectionType = $this->input('collection_type');
+            $frameSamplingIntervalUnit = $this->input('frame_sampling_interval_unit');
+            $frameSamplingIntervalValue = (int) $this->input('frame_sampling_interval_value');
+
+            if (
+                $collectionType === 'scheduled_capture'
+                && $frameSamplingIntervalUnit === 'frames'
+                && $frameSamplingIntervalValue === 1
+            ) {
+                $validator->errors()->add(
+                    'frame_sampling_interval_unit',
+                    'Use frame_sampling_interval_unit=seconds and frame_sampling_interval_value=1 for 1 FPS scheduled capture.'
+                );
+            }
+        });
     }
 }

@@ -4,6 +4,7 @@ namespace App\Http\Requests\Api;
 
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 class UpdateRawDataCollectionSettingRequest extends FormRequest
 {
@@ -32,5 +33,35 @@ class UpdateRawDataCollectionSettingRequest extends FormRequest
             ])],
             'is_active' => ['sometimes', 'boolean'],
         ];
+    }
+
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator): void {
+            $rawDataCollectionSetting = $this->route('rawDataCollectionSetting');
+            $collectionType = $this->input(
+                'collection_type',
+                is_object($rawDataCollectionSetting) ? $rawDataCollectionSetting->collection_type : null
+            );
+            $frameSamplingIntervalUnit = $this->input(
+                'frame_sampling_interval_unit',
+                is_object($rawDataCollectionSetting) ? $rawDataCollectionSetting->frame_sampling_interval_unit : null
+            );
+            $frameSamplingIntervalValue = (int) $this->input(
+                'frame_sampling_interval_value',
+                is_object($rawDataCollectionSetting) ? $rawDataCollectionSetting->frame_sampling_interval_value : 0
+            );
+
+            if (
+                $collectionType === 'scheduled_capture'
+                && $frameSamplingIntervalUnit === 'frames'
+                && $frameSamplingIntervalValue === 1
+            ) {
+                $validator->errors()->add(
+                    'frame_sampling_interval_unit',
+                    'Use frame_sampling_interval_unit=seconds and frame_sampling_interval_value=1 for 1 FPS scheduled capture.'
+                );
+            }
+        });
     }
 }

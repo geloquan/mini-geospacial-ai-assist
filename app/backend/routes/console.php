@@ -44,5 +44,5 @@ Artisan::command('raw-data-collection:capture-frames-forever {--sleep=5}', funct
 })->purpose('Continuously capture image frames without requiring schedule:run.');
 
 Schedule::job(new CollectRawDataFramesJob())
-    ->withoutOverlapping(10)
-    ->everyTenMinutes();
+    ->withoutOverlapping(1)
+    ->everySecond();

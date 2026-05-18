@@ -219,6 +219,25 @@ class RawDataCollectionFrameCaptureService
     return $this->captureFrame($setting, true);
   }
 
+  public function captureScheduledById(int $rawDataCollectionSettingId): bool
+  {
+    $setting = RawDataCollectionSetting::query()
+      ->with('cameraSource.location')
+      ->findOrFail($rawDataCollectionSettingId);
+
+    return $this->captureFrame($setting);
+  }
+
+  public function resolveSamplingIntervalSeconds(RawDataCollectionSetting $setting): int
+  {
+    $cameraSource = $setting->cameraSource;
+    if (!($cameraSource instanceof CameraSource)) {
+      return 1;
+    }
+
+    return $this->samplingIntervalToSeconds($setting, $cameraSource);
+  }
+
   private function captureFrame(RawDataCollectionSetting $setting, bool $forceCapture = false): bool
   {
     $cameraSource = $setting->cameraSource;
