@@ -34,11 +34,12 @@ class CaptureRawDataCollectionSettingFramesJob implements ShouldQueue
 
     try {
       $captured = $frameCaptureService->captureScheduledById($this->rawDataCollectionSettingId);
-      $targetFps = round(1 / $this->intervalSeconds, self::FPS_DECIMAL_PLACES);
+      $safeIntervalSeconds = max(1, $this->intervalSeconds);
+      $targetFps = round(1 / $safeIntervalSeconds, self::FPS_DECIMAL_PLACES);
 
       Log::info('Completed raw data frame capture job for setting.', [
         'raw_data_collection_setting_id' => $this->rawDataCollectionSettingId,
-        'interval_seconds' => $this->intervalSeconds,
+        'interval_seconds' => $safeIntervalSeconds,
         'target_fps' => $targetFps,
         'achieved_fps' => $captured ? $targetFps : 0.0,
         'dropped_frames' => $captured ? 0 : 1,
