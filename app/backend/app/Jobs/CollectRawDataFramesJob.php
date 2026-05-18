@@ -15,6 +15,8 @@ class CollectRawDataFramesJob implements ShouldQueue
 {
   use Queueable;
 
+  private const DISPATCH_CURSOR_TTL_MINUTES = 10;
+
   public int $timeout = 60;
 
   public function __construct()
@@ -108,7 +110,11 @@ class CollectRawDataFramesJob implements ShouldQueue
     }
 
     if ($lastEvaluatedSettingId > 0) {
-      Cache::put($dispatchCursorCacheKey, $lastEvaluatedSettingId, now()->addMinutes(10));
+      Cache::put(
+        $dispatchCursorCacheKey,
+        $lastEvaluatedSettingId,
+        now()->addMinutes(self::DISPATCH_CURSOR_TTL_MINUTES)
+      );
     } else {
       Cache::forget($dispatchCursorCacheKey);
     }
