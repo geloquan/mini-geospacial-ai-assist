@@ -43,16 +43,14 @@ class CollectRawDataFramesJob implements ShouldQueue
     $scheduledSettings = collect();
     $remainingSettingsBudget = $maxCamerasPerNode;
 
-    if ($remainingSettingsBudget > 0) {
-      $nextSettings = (clone $baseScheduledSettingsQuery)
-        ->with('cameraSource')
-        ->where('id', '>', $lastDispatchedSettingId)
-        ->orderBy('id')
-        ->limit($remainingSettingsBudget)
-        ->get();
-      $scheduledSettings = $scheduledSettings->concat($nextSettings);
-      $remainingSettingsBudget -= $nextSettings->count();
-    }
+    $nextSettings = (clone $baseScheduledSettingsQuery)
+      ->with('cameraSource')
+      ->where('id', '>', $lastDispatchedSettingId)
+      ->orderBy('id')
+      ->limit($remainingSettingsBudget)
+      ->get();
+    $scheduledSettings = $scheduledSettings->concat($nextSettings);
+    $remainingSettingsBudget -= $nextSettings->count();
 
     if ($remainingSettingsBudget > 0) {
       $wrappedSettings = (clone $baseScheduledSettingsQuery)
@@ -65,9 +63,7 @@ class CollectRawDataFramesJob implements ShouldQueue
 
     if ($scheduledSettings->isNotEmpty()) {
       $lastScheduledSetting = $scheduledSettings->last();
-      $nextCursorSettingId = is_object($lastScheduledSetting) && isset($lastScheduledSetting->id)
-        ? (int) $lastScheduledSetting->id
-        : 0;
+      $nextCursorSettingId = (int) $lastScheduledSetting->id;
 
       Cache::put($dispatchCursorCacheKey, $nextCursorSettingId, now()->addMinutes(10));
     } else {
