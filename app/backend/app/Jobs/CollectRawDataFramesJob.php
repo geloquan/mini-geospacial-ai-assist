@@ -38,12 +38,41 @@ class CollectRawDataFramesJob implements ShouldQueue
       });
 
     $activeScheduledSettingsCount = (clone $baseScheduledSettingsQuery)->count();
+    $dispatchCursorCacheKey = 'raw-data-collection:dispatch-cursor:last-setting-id';
+    $lastDispatchedSettingId = max(0, (int) Cache::get($dispatchCursorCacheKey, 0));
+    $scheduledSettings = collect();
+    $remainingSettingsBudget = $maxCamerasPerNode;
 
-    $scheduledSettings = (clone $baseScheduledSettingsQuery)
-      ->with('cameraSource')
-      ->orderBy('id')
-      ->limit($maxCamerasPerNode)
-      ->get();
+    if ($remainingSettingsBudget > 0) {
+      $nextSettings = (clone $baseScheduledSettingsQuery)
+        ->with('cameraSource')
+        ->where('id', '>', $lastDispatchedSettingId)
+        ->orderBy('id')
+        ->limit($remainingSettingsBudget)
+        ->get();
+      $scheduledSettings = $scheduledSettings->concat($nextSettings);
+      $remainingSettingsBudget -= $nextSettings->count();
+    }
+
+    if ($remainingSettingsBudget > 0) {
+      $wrappedSettings = (clone $baseScheduledSettingsQuery)
+        ->with('cameraSource')
+        ->orderBy('id')
+        ->limit($remainingSettingsBudget)
+        ->get();
+      $scheduledSettings = $scheduledSettings->concat($wrappedSettings);
+    }
+
+    if ($scheduledSettings->isNotEmpty()) {
+      $lastScheduledSetting = $scheduledSettings->last();
+      $nextCursorSettingId = is_object($lastScheduledSetting) && isset($lastScheduledSetting->id)
+        ? (int) $lastScheduledSetting->id
+        : 0;
+
+      Cache::put($dispatchCursorCacheKey, $nextCursorSettingId, now()->addMinutes(10));
+    } else {
+      Cache::forget($dispatchCursorCacheKey);
+    }
 
     $dispatchBudget = $maxDispatchPerTick;
     $cappedSettings = max(0, $activeScheduledSettingsCount - $maxCamerasPerNode);
