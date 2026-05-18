@@ -41,33 +41,24 @@ class CollectRawDataFramesJob implements ShouldQueue
     $dispatchCursorCacheKey = 'raw-data-collection:dispatch-cursor:last-setting-id';
     $lastDispatchedSettingId = max(0, (int) Cache::get($dispatchCursorCacheKey, 0));
     $scheduledSettings = collect();
-    $remainingSettingsBudget = $maxCamerasPerNode;
+    $remainingCapacity = $maxCamerasPerNode;
 
     $nextSettings = (clone $baseScheduledSettingsQuery)
       ->with('cameraSource')
       ->where('id', '>', $lastDispatchedSettingId)
       ->orderBy('id')
-      ->limit($remainingSettingsBudget)
+      ->limit($remainingCapacity)
       ->get();
     $scheduledSettings = $scheduledSettings->concat($nextSettings);
-    $remainingSettingsBudget -= $nextSettings->count();
+    $remainingCapacity -= $nextSettings->count();
 
-    if ($remainingSettingsBudget > 0) {
+    if ($remainingCapacity > 0) {
       $wrappedSettings = (clone $baseScheduledSettingsQuery)
         ->with('cameraSource')
         ->orderBy('id')
-        ->limit($remainingSettingsBudget)
+        ->limit($remainingCapacity)
         ->get();
       $scheduledSettings = $scheduledSettings->concat($wrappedSettings);
-    }
-
-    if ($scheduledSettings->isNotEmpty()) {
-      $lastScheduledSetting = $scheduledSettings->last();
-      $nextCursorSettingId = (int) $lastScheduledSetting->id;
-
-      Cache::put($dispatchCursorCacheKey, $nextCursorSettingId, now()->addMinutes(10));
-    } else {
-      Cache::forget($dispatchCursorCacheKey);
     }
 
     $dispatchBudget = $maxDispatchPerTick;
@@ -76,13 +67,19 @@ class CollectRawDataFramesJob implements ShouldQueue
     $deferredNotDue = 0;
     $deferredInFlight = 0;
     $dispatchedCount = 0;
+    $lastEvaluatedSettingId = 0;
     $now = time();
     $loadAverages = function_exists('sys_getloadavg') ? sys_getloadavg() : null;
+    $scheduledSettingsCount = $scheduledSettings->count();
+    $currentSettingIndex = 0;
 
     foreach ($scheduledSettings as $setting) {
+      $currentSettingIndex++;
+      $lastEvaluatedSettingId = (int) $setting->id;
+
       if ($dispatchBudget <= 0) {
-        $deferredNoCapacity++;
-        continue;
+        $deferredNoCapacity += max(0, $scheduledSettingsCount - $currentSettingIndex + 1);
+        break;
       }
 
       $settingId = (int) $setting->id;
@@ -108,6 +105,12 @@ class CollectRawDataFramesJob implements ShouldQueue
       );
       $dispatchBudget--;
       $dispatchedCount++;
+    }
+
+    if ($lastEvaluatedSettingId > 0) {
+      Cache::put($dispatchCursorCacheKey, $lastEvaluatedSettingId, now()->addMinutes(10));
+    } else {
+      Cache::forget($dispatchCursorCacheKey);
     }
 
     Log::info('Completed scheduled raw data frame dispatch tick.', [
